@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+*.egg-info/
+.DS_Store
+.snapshots/
+development-workspaces/
+CLAUDE.md
+
+# Real scan data used for local/manual testing: potentially large and/or
+# contains real archival content, never committed.
+tests/data/
