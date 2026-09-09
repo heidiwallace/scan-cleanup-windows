@@ -179,6 +179,8 @@ resuming afterwards. Do this once, by hand. Options, cheapest first:
   such as ScanTailor Advanced, Tesseract, and Ghostscript run under Windows'
   built-in emulation. UTM (also free) is a fallback. On an Intel Mac, VMware
   Fusion, VirtualBox, or Parallels with ordinary 64-bit Windows all work.
+  **Full step-by-step instructions are in "Setting up a free Windows virtual
+  machine" below.**
 - **A Windows-using colleague or one of the intended end users.** Give them a
   pre-release wheel and a short written test script. These users are the reason
   the Windows version exists, so this acceptance step is worth doing regardless
@@ -201,7 +203,299 @@ it. None of that blocks starting the code changes.
 
 ---
 
-## Blocking issues (the package will not work correctly on Windows without these)
+## Setting up a free Windows virtual machine (for the person doing verification)
+
+This is a step-by-step guide to running Windows on your Mac at no cost, so you
+can do the checks the automated tests can't: launching the real ScanTailor
+Advanced program, running a scan through it by hand, and confirming the finished
+PDF comes out right (items V1, V2, and the manual acceptance pass).
+
+Plan on about **an hour** of setup, mostly waiting for downloads and the Windows
+installer. You need roughly **65 GB of free disk space** on the Mac and at least
+**16 GB of memory** for a comfortable experience (8 GB works but is slow).
+
+### Background: what a virtual machine is, and why the chip matters
+
+A **virtual machine** (VM) is a complete second computer that runs in a window on
+your Mac. It has its own copy of Windows, its own simulated hard disk (really
+just a big file on your Mac), and its own memory carved out of the Mac's. Nothing
+it does touches your real files unless you deliberately share a folder. When
+you're finished you delete one file and it's gone.
+
+Your Mac uses an **Apple Silicon** chip (the "M" series — M1, M2, M3, M4). This
+matters for two reasons:
+
+1. The version of Windows you install has to be the **Arm** version, because that
+   matches the chip. Microsoft provides this version free.
+2. Windows programs come in two types: the older, common **"64-bit"** type (also
+   called x64 or Intel), and the newer **"Arm"** type. Windows-on-Arm can run
+   both — it automatically translates 64-bit programs on the fly — but that
+   translation is invisible to you. The only place this leaks through is Python:
+   several of the components this project depends on are published **only** in
+   the 64-bit type. So when you install Python inside the VM you must pick the
+   **64-bit installer**, not the Arm one. Step 7 covers this; it's the one part
+   of this guide where the wrong click causes a confusing failure later.
+
+You will **not** need to buy anything. VMware Fusion is free for personal use,
+Windows is free to download, and an un-activated copy of Windows 11 runs
+indefinitely for testing — the only nag is a small "Activate Windows" watermark
+in the corner of the screen and a greyed-out wallpaper setting. That's fine for
+this purpose.
+
+### Step 1 — Install VMware Fusion (the free VM program)
+
+VMware Fusion is the software that creates and runs the virtual machine.
+Broadcom (which owns it) made it free for personal use, but the download site is
+clunky.
+
+1. Go to `https://www.broadcom.com/`, and in the top menu open
+   **Products → VMware Cloud Foundation** area, or just search the web for
+   **"download VMware Fusion personal use"** and follow the Broadcom link — it
+   moves around.
+2. You'll be asked to **create a free Broadcom account**. Do that and sign in.
+3. In the account area, find **My Downloads**, then **VMware Fusion**, then the
+   **Fusion Pro (Personal Use)** entry. Download the latest version (13.5 or
+   newer).
+4. Open the downloaded file and drag **VMware Fusion** into your Applications
+   folder. Launch it. When it asks for a licence, choose the
+   **"personal use" / free** option — no key required.
+5. macOS will ask you to approve some system permissions for it (screen
+   recording, accessibility). Approve them; the VM needs them to show its screen
+   and pass keyboard input.
+
+### Step 2 — Get the Windows installer file
+
+Newer versions of Fusion have a button during VM creation that says something
+like **"Get Windows 11 from Microsoft"** and downloads it for you. **If you see
+that option in Step 3, use it and skip the rest of this step.**
+
+Otherwise, download the installer yourself:
+
+1. Go to
+   `https://www.microsoft.com/en-us/software-download/windows11arm64`.
+2. Under **"Download Windows 11 Arm64 Disk Image (ISO)"**, pick a language and
+   click **Download**. You'll get a file ending in **`.iso`** — this is the
+   Windows installer, about 5 GB. An `.iso` file is just a packaged-up disc; the
+   VM treats it like an install DVD.
+
+### Step 3 — Create the virtual machine
+
+1. In VMware Fusion, choose **File → New**.
+2. Drag your `.iso` file onto the window (or use the "Get Windows from Microsoft"
+   button if offered).
+3. Fusion will detect it as Windows 11. Continue through the wizard.
+4. When it offers **"Use Easy Install"**, you can fill in a username and
+   password now to save time later, or turn it off and do Windows setup by hand
+   in Step 4. Either is fine.
+5. Before it finishes, click **Customize Settings** (or open the VM's settings
+   afterwards) and set:
+   - **Processors & Memory:** 4 processor cores, and 8192 MB (8 GB) of memory if
+     your Mac has 16 GB or more; 4096 MB (4 GB) if it has 8 GB.
+   - **Hard Disk:** 64 GB. This is a maximum, not an upfront reservation — the
+     file on your Mac grows only as Windows actually fills it (expect ~35 GB in
+     practice).
+6. Start the VM. A window opens showing the Windows installer booting. Click into
+   the window to give it your mouse and keyboard; press **Control-Command** to
+   release them back to the Mac.
+
+### Step 4 — Get through first-time Windows setup
+
+Follow the on-screen Windows installer. Notes for the questions it asks:
+
+- **"Which type of installation?"** → if asked, choose a clean install.
+- **Product key** → click **"I don't have a product key"**. (Remember: no
+  activation needed for testing.)
+- **Edition** → choose **Windows 11 Pro** if given a list.
+- **Account** → Windows 11 pushes you to sign in with a Microsoft account. For a
+  throwaway test machine that's acceptable; sign in with any Microsoft account
+  you have, or create a free one. If you're offered **"Sign-in options" → 
+  "Offline account"**, you can use that to make a plain local account instead.
+- Decline the optional extras (OneDrive backup, Game Pass, personalisation
+  questions) — they don't matter here.
+- After it reaches the Windows desktop, **install VMware Tools**: in the Mac
+  menu bar for the VM, choose **Virtual Machine → Install VMware Tools**, then
+  inside Windows open **File Explorer → the new "DVD Drive" → run `setup`**.
+  Reboot when it asks. This makes the window resize properly, the mouse behave,
+  and copy-paste between Mac and Windows work.
+
+### Step 5 — Install the helper programs inside Windows
+
+Everything from here happens **inside the Windows VM**.
+
+1. Click the **Start** button, type **PowerShell**, right-click **Windows
+   PowerShell**, and choose **Run as administrator**. A blue text window opens.
+   This is Windows' command-line, like Terminal on the Mac.
+2. Install the three non-Python programs. Copy-paste these one line at a time and
+   press Enter after each:
+
+   ```powershell
+   winget install --id UB-Mannheim.TesseractOCR -e
+   winget install --id ArtifexSoftware.GhostScript -e
+   winget install --id astral-sh.uv -e
+   ```
+
+   `winget` is Windows' built-in app installer. If it asks you to accept terms
+   the first time, type **Y** and Enter. `uv` is the tool that builds and runs
+   this project (the Windows counterpart of what you use on the Mac).
+
+3. **Close the PowerShell window and open a new one** (as administrator again).
+   Installers add programs to the system's search list, and only new windows
+   pick up that change.
+
+4. Check they're visible:
+
+   ```powershell
+   tesseract --version
+   gswin64c --version
+   uv --version
+   ```
+
+   Each should print a version number. If one says "not recognized", its folder
+   didn't get added to the search list — search the web for "add
+   \<program\> to PATH Windows" or reinstall it with the "Add to PATH" box
+   ticked.
+
+5. **ScanTailor Advanced.** Download the Windows build identified in item V1
+   (currently the TeraBox link recorded there — treat it with the caution noted
+   in V1: scan it, confirm the version, prefer an official source if one turns
+   up). Unzip or install it. Note the full path to **`scantailor-advanced.exe`**
+   — you'll need it in Step 8. The first time you launch it, Windows may show a
+   blue **"Windows protected your PC"** box; click **More info → Run anyway**
+   (this is normal for a download that isn't digitally signed).
+
+### Step 6 — Get the project code into the VM
+
+Pick whichever is easiest:
+
+- **Best — via GitHub.** Once the `scan-cleanup-windows` repository is pushed to
+  GitHub, install Git in the VM (`winget install --id Git.Git -e`, then reopen
+  PowerShell) and run:
+
+  ```powershell
+  cd ~
+  git clone <the repository URL>
+  cd scan-cleanup-windows
+  ```
+
+- **Shared folder.** In the VM's settings in Fusion, under **Sharing**, enable
+  folder sharing and add the `scan-cleanup-windows` folder from your Mac. It
+  then appears inside Windows under `\\vmware-host\Shared Folders\`. Copy it to
+  somewhere like `C:\Users\<you>\scan-cleanup-windows` before working on it
+  (building inside the shared folder can be slow and flaky).
+
+- **Zip file.** On the Mac, compress the `scan-cleanup-windows` folder, move the
+  zip into the VM by drag-and-drop (VMware Tools enables this) or a USB drive,
+  and unzip it in Windows.
+
+### Step 7 — Install the 64-bit Python (the click that matters)
+
+As explained in the background section, you must use the **64-bit** Python, not
+the Arm one.
+
+1. In the VM, open `https://www.python.org/downloads/windows/`.
+2. Under the latest **Python 3.12** release, download the
+   **"Windows installer (64-bit)"**. Do **not** pick "Windows installer
+   (ARM64)" or the Microsoft Store version.
+3. Run the installer. On the first screen, **tick "Add python.exe to PATH"**,
+   then click **Install Now**.
+4. Close and reopen PowerShell, then confirm:
+
+   ```powershell
+   python --version
+   python -c "import platform; print(platform.machine())"
+   ```
+
+   The first prints `3.12.x`. The second must print **`AMD64`** — that's the
+   name Windows uses for "64-bit / Intel-type". If it prints `ARM64`, you
+   installed the wrong one; uninstall it and redo this step with the 64-bit
+   installer.
+
+### Step 8 — Build, test, and verify
+
+Inside PowerShell, in the project folder (`scan-cleanup-windows`):
+
+1. **Build the environment**, forcing `uv` to use the 64-bit Python you just
+   installed:
+
+   ```powershell
+   uv sync --python python
+   ```
+
+   `--python python` tells it to use the `python` on the search list (your
+   64-bit one) rather than downloading its own. This step downloads all the
+   Python components; it succeeds only because they're the 64-bit type.
+   If it fails with a message about "no matching distribution" for a package
+   like `opencv-python-headless`, you're on Arm Python — go back to Step 7.
+
+2. **Run the automated tests:**
+
+   ```powershell
+   uv run pytest
+   ```
+
+   Expect **42 passed** (a few may say "skipped" — that's fine). This confirms
+   the code behaves the same on Windows as on the Mac.
+
+3. **Run the real OCR test** (this exercises Tesseract and Ghostscript for real
+   — item **V2**):
+
+   ```powershell
+   uv run pytest -m ocr_smoke -v
+   ```
+
+   Expect **1 passed**. If it errors, capture the full output — that's exactly
+   the ocrmypdf-on-Windows problem V2 is meant to catch, and the fix is usually
+   pinning a specific `ocrmypdf` version or passing `jobs=1`.
+
+4. **Do a full run by hand** with a short sample PDF (2–5 scanned pages). Put one
+   at `C:\Users\<you>\sample.pdf` and run:
+
+   ```powershell
+   uv run scan-cleanup process C:\Users\<you>\sample.pdf C:\Users\<you>\out `
+     --scantailor "C:\path\to\scantailor-advanced.exe" --workspace-root C:\sc
+   ```
+
+   (The backtick at the end of the first line lets the command continue onto the
+   next line.) What should happen, in order:
+   - ScanTailor Advanced **opens by itself** with the pages loaded. **This is
+     item V1** — if it opens the project, the core assumption holds.
+   - You work through ScanTailor's stages and run **Output** on all pages, then
+     **close ScanTailor**.
+   - The PowerShell command **resumes on its own**, does the OCR step, and prints
+     `Done: C:\Users\<you>\out\sample_processed.pdf`. **This is the manual
+     acceptance pass.**
+   - Open that PDF, confirm the pages look right and that you can select/search
+     the text.
+
+5. Also try it **without** `--scantailor` after a normal ScanTailor install, to
+   check that automatic discovery (item **B2**) finds it. If it doesn't, note the
+   actual folder ScanTailor installed into and update the folder list in
+   `resolve_scantailor()` in `src/scan_cleanup/scantailor.py`.
+
+### Step 9 — Record what you found
+
+Update these in the repo (on the Mac or in the VM, then commit):
+
+- **`WINDOWS_PORT.md`** — mark V1 and V2 done (or describe what broke).
+- **`CLAUDE.md`** — the "Still to do" list at the top: which items are now
+  verified; the exact ScanTailor version and install path you used.
+- If B2's folder list or anything else needed a code change, make it and re-run
+  Step 8.
+
+### When you're done: cleaning up
+
+The VM is a single item in VMware Fusion's **Virtual Machine Library** window.
+To reclaim the ~35 GB of disk space, right-click it there and choose **Delete**,
+or **Move to Trash**. Nothing else on your Mac is affected.
+
+### If VMware Fusion doesn't work out: UTM
+
+**UTM** (`https://mac.getutm.app/`) is a free, open-source alternative. Download
+it directly from that site (the App Store version costs money and is identical —
+the paid listing just funds the project). It can run the same Windows 11 Arm
+`.iso` from Step 2. It's a little more manual to set up and generally a bit
+slower than Fusion, but it has no account/download hassle. The Windows-side steps
+(5 through 9) are exactly the same.
 
 ### B1 — Ghostscript has a different command name on Windows
 
