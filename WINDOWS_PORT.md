@@ -21,6 +21,77 @@ with one; **CI runner** = the throwaway machine GitHub uses to test the code.
 
 ---
 
+## Build status — 2026-09-08
+
+**Initial build complete.** All code, packaging, CI, and documentation items
+(Step 0, B1–B4, R1–R4, P1–P4, D1–D2) are implemented and committed in
+`/Users/heidiwallace/dev/scan-cleanup-windows`. Two commits:
+
+1. `Initial copy of scan-cleanup (macOS package) at HEAD` — unmodified export.
+2. `Adapt scan-cleanup for Windows (B1-B4, R1-R4, P1-P4, D1-D2)` — the changes.
+
+### Decisions made
+
+- **Distribution name:** `scan-cleanup-windows` (Heidi's choice — both packages
+  can be published to PyPI independently). The **import package** (`scan_cleanup`)
+  and the **console command** (`scan-cleanup`) are unchanged, so fixes port
+  cleanly between the two. Enforced by
+  `[tool.uv.build-backend] module-name = "scan_cleanup"` in `pyproject.toml`.
+- **Version:** `0.3.0.dev0` (signals a pre-release ahead of the macOS 0.2.0).
+- **B2 install folders:** the Windows discovery branch checks folder names
+  `ScanTailor Advanced`, `STAdvanced`, `ScanTailor` under each Program Files /
+  LocalAppData root, with a `TODO(win-verify)` comment — confirm against the
+  real build in V1.
+- **CI:** `test` job runs on an `[ubuntu-latest, windows-latest]` matrix; a
+  separate `ocr-smoke-windows` job `choco install`s Tesseract + Ghostscript and
+  runs `pytest -m ocr_smoke` (the one test that drives the real OCR pipeline).
+
+### What changed, by file
+
+| File | Items | Summary |
+| --- | --- | --- |
+| `src/scan_cleanup/_imageio.py` (new) | B4 | `imread_unicode` / `imwrite_unicode` — NumPy `fromfile`/`tofile` + `cv2.imdecode`/`imencode`, Unicode-path-safe on Windows. |
+| `src/scan_cleanup/ocr.py` | B1 | `_REQUIRED_BINARIES` maps a label to candidate command names; Ghostscript accepted as `gswin64c` / `gswin32c` / `gs`. `_INSTALL_INSTRUCTIONS` rewritten for Windows. |
+| `src/scan_cleanup/scantailor.py` | B2, B4, R4 | `sys.platform == "win32"` discovery branch; `generate_project` / `validate_output` use `imread_unicode`; `validate_output` matches TIFF names case-insensitively. |
+| `src/scan_cleanup/pipeline.py` | B3, R1 | `_move_replace()` (rename → copy+delete on cross-drive `OSError`); `_remove_workspace()` (clear read-only, retry, warn instead of raise). Both `shutil.rmtree` and the final `.replace` call sites updated. |
+| `src/scan_cleanup/pdf_io.py` | B4 | `extract_pages_to_png` writes via `imwrite_unicode`. |
+| `src/scan_cleanup/workspace.py` | R2, R4 | `safe_stem()` strips Windows-invalid characters and caps at 40 chars; no-root prefix shortened from `scan-cleanup-` to `sc-`. |
+| `src/scan_cleanup/cli.py` | R4 | `_make_streams_lenient()` — stdout/stderr `errors="backslashreplace"`. |
+| `pyproject.toml` | P1 | Name, version, classifier, `module-name`, `ocr_smoke` marker. |
+| `.github/workflows/ci.yml` | P2 | OS matrix + `ocr-smoke-windows` job. |
+| `.gitattributes` (new) | R3 | `* text=auto eol=lf`; `.scantailor` pinned to LF; binaries marked. |
+| `.gitignore` | P4 | Added `Thumbs.db`, `ehthumbs.db`, `desktop.ini`, `$RECYCLE.BIN/`; removed `CLAUDE.md` (now tracked). |
+| `README.md` | D1 | Windows install (uv, ScanTailor, Tesseract, Ghostscript), PowerShell examples, MAX_PATH guidance, CI description. |
+| `CLAUDE.md` | D2 | Windows change log, updated "ScanTailor executable" section, outstanding V1/V2. |
+| `tests/test_windows_compat.py` (new) | B1–B4, R1–R2, R4 | 14 test functions (19 cases with parametrisation) — monkeypatched, run on any OS, need no external programs. |
+| `tests/test_ocr_smoke.py` (new) | V2 (proxy) | Real `add_ocr_layer` run; `@pytest.mark.ocr_smoke`, auto-skips when Tesseract/Ghostscript absent. |
+
+### Local validation (macOS, `uv` 0.12.3)
+
+- `uv run ruff check .` — clean.
+- `uv run pytest` — **42 passed** (22 inherited + 20 new). The `ocr_smoke` test
+  ran for real here (this Mac has Tesseract + Ghostscript) and passed — an early
+  partial signal for V2, though not on Windows.
+- `uv lock --check` — lockfile valid unchanged.
+- `uv build` — produces `scan_cleanup_windows-0.3.0.dev0.tar.gz` and
+  `...-py3-none-any.whl`; wheel contains the `scan_cleanup/` package, the bundled
+  template, and the `scan-cleanup` console-script entry point.
+
+### Still outstanding (needs a Windows machine or VM)
+
+- **V1** — verify `scantailor-advanced.exe "project.ScanTailor"` opens the
+  project; confirm the real install folder to finalize B2's `TODO(win-verify)`;
+  settle the download's provenance before D1 links it. On record:
+  `https://www.terabox.com/sharing/link?surl=ZlDnuOMokDp747Sehnhk9A`.
+- **V2** — one real `scan-cleanup process` run end to end on Windows (the
+  `ocr-smoke-windows` CI job is the automated proxy).
+- **Manual acceptance** — one interactive GUI round-trip (launch, edit, close,
+  resume), per "Development approach" step 4.
+- **Next practical step:** push the repo to GitHub so the `windows-latest` CI
+  matrix actually runs.
+
+---
+
 ## Step 0 — Create the new package from the current one
 
 **Issue.** The new folder is empty. Work should start from an exact copy of the
