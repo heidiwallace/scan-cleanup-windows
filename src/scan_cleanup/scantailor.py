@@ -14,6 +14,8 @@ from pathlib import Path
 import cv2
 from PIL import Image
 
+from scan_cleanup._imageio import imread_unicode
+
 
 class ScanTailorError(RuntimeError):
     """Raised when ScanTailor cannot be launched or produces invalid output."""
@@ -52,6 +54,25 @@ def resolve_scantailor(explicit: Path | None = None) -> Path:
                 / "Applications/ScanTailor Advanced.app/Contents/MacOS/scantailor-advanced",
             ]
         )
+
+    if sys.platform == "win32":
+        # ScanTailor Advanced's Windows installer does not add itself to PATH, so
+        # check the standard install roots directly. Built from environment
+        # variables because Windows can live on any drive and "Program Files" is
+        # localized on some systems.
+        # TODO(win-verify): confirm the actual install folder name against the
+        # ScanTailor Advanced Windows build documented in the README (installer
+        # vs. portable .zip may differ; a portable build has no fixed location
+        # and needs --scantailor or SCANTAILOR_ADVANCED).
+        program_roots = (
+            os.environ.get("ProgramFiles"),
+            os.environ.get("ProgramFiles(x86)"),
+            os.environ.get("ProgramW6432"),
+            os.environ.get("LOCALAPPDATA"),
+        )
+        for root in filter(None, program_roots):
+            for folder in ("ScanTailor Advanced", "STAdvanced", "ScanTailor"):
+                candidates.append(Path(root) / folder / "scantailor-advanced.exe")
 
     for candidate in candidates:
         if candidate.is_file() and os.access(candidate, os.X_OK):
@@ -287,7 +308,7 @@ def generate_project(
     for file_node, image_node, page_path in zip(
         template_files, template_images, page_paths, strict=True
     ):
-        image = cv2.imread(str(page_path), cv2.IMREAD_UNCHANGED)
+        image = imread_unicode(page_path, cv2.IMREAD_UNCHANGED)
         if image is None:
             raise ScanTailorError(f"Could not read extracted page: {page_path}")
         height, width = image.shape[:2]
@@ -323,19 +344,23 @@ def expected_tiff_names(page_paths: list[Path]) -> list[str]:
 
 
 def validate_output(output_dir: Path, expected_names: list[str]) -> list[Path]:
+    # Match case-insensitively. Windows and macOS filesystems are themselves
+    # case-insensitive, and a ScanTailor build may vary the extension or stem
+    # casing (e.g. PAGE-01.TIF); an exact string compare would then wrongly
+    # flag every page as both missing and unexpected.
     actual = {
-        path.name: path
+        path.name.lower(): path
         for path in output_dir.iterdir()
         if path.is_file() and path.suffix.lower() in {".tif", ".tiff"}
     }
-    expected = set(expected_names)
-    missing = sorted(expected - set(actual))
-    unexpected = sorted(set(actual) - expected)
+    expected_by_key = {name.lower(): name for name in expected_names}
+    missing = sorted(expected_by_key[key] for key in expected_by_key.keys() - actual.keys())
+    unexpected = sorted(actual[key].name for key in actual.keys() - expected_by_key.keys())
 
     unreadable = []
     for name in expected_names:
-        path = actual.get(name)
-        if path is not None and cv2.imread(str(path), cv2.IMREAD_UNCHANGED) is None:
+        path = actual.get(name.lower())
+        if path is not None and imread_unicode(path, cv2.IMREAD_UNCHANGED) is None:
             unreadable.append(name)
 
     if missing or unexpected or unreadable:
@@ -351,7 +376,7 @@ def validate_output(output_dir: Path, expected_names: list[str]) -> list[Path]:
             "The workspace has been preserved."
         )
 
-    return [actual[name] for name in expected_names]
+    return [actual[name.lower()] for name in expected_names]
 
 
 def validate_tiff_dpi(tiff_paths: list[Path]) -> int:

@@ -1,4 +1,10 @@
-# scan-cleanup
+# scan-cleanup (Windows)
+
+This is the **Windows build** of `scan-cleanup` (distribution name
+`scan-cleanup-windows`; the command is still `scan-cleanup`). It is functionally
+identical to the macOS package — the differences are Windows executable
+discovery, Ghostscript's command name, cross-drive file moves, and Unicode path
+handling. Commands below use PowerShell.
 
 `scan-cleanup` coordinates an interactive ScanTailor Advanced workflow for
 scanned PDFs:
@@ -55,85 +61,105 @@ Successful workspaces are deleted after the final OCR PDF has been written.
 Failed or incomplete workspaces are always retained. During development, pass
 `--keep-workspace` to retain a successful workspace for inspection.
 
-`resolve_scantailor()`'s fixed-location discovery (see "Installing ScanTailor
-Advanced" below) only checks macOS install paths. On Linux and Windows it
-still falls back to bare PATH discovery, with no fixed-location safety net —
-adding equivalent fixed candidates for those platforms is planned.
+On Windows, `resolve_scantailor()` checks the standard Program Files install
+locations directly (see "Installing ScanTailor Advanced" below), because the
+installer does not add itself to `PATH`. A portable (`.zip`) build has no fixed
+location — pass `--scantailor` or set `SCANTAILOR_ADVANCED` for that.
 
 ## Requirements
 
-- Python 3.12+
-- ScanTailor Advanced
+- Python 3.12+ (or let `uv` install it: `uv python install 3.12`)
+- ScanTailor Advanced (Windows 10/11 build)
 - Tesseract
 - Ghostscript
 
-### Installing ScanTailor Advanced (macOS)
+All three non-Python programs must be on your `PATH` (ScanTailor is also found
+automatically in its standard install folder).
 
-`scan-cleanup` looks for the `scantailor-advanced` executable at, in order:
-1. `--scantailor PATH`
-2. the `SCANTAILOR_ADVANCED` environment variable
-3. `scantailor-advanced` on `PATH`
-4. a fixed, supported install location: `$(brew --prefix)/bin/scantailor-advanced`
-5. `/Applications/ScanTailor Advanced.app/Contents/MacOS/scantailor-advanced`
-   (the official `.app` distribution, if installed there instead)
+### Installing uv
 
-Option 4 is the supported install path for this package and requires no flags
-or environment variables once set up. There is no upstream Homebrew formula, so
-build it from source and install it into the Homebrew prefix directly:
-
-```bash
-brew install cmake ninja qt jpeg-turbo libpng libtiff
-git clone https://github.com/ScanTailor-Advanced/scantailor-advanced.git
-cmake -S scantailor-advanced -B scantailor-advanced/build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build scantailor-advanced/build
-cmake --install scantailor-advanced/build --prefix "$(brew --prefix)"
+```powershell
+winget install astral-sh.uv
 ```
 
-This installs a real, standalone binary at `$(brew --prefix)/bin/scantailor-advanced`
-(dependencies are linked via absolute Homebrew paths, so it does not depend on
-the source checkout after this point — the checkout can be deleted or moved
-freely). Confirm it resolves with:
+(or the PowerShell bootstrap from <https://astral.sh/uv>).
 
-```bash
+### Installing ScanTailor Advanced
+
+Install a Windows 10/11 build of ScanTailor Advanced. `scan-cleanup` looks for
+the executable at, in order:
+
+1. `--scantailor "C:\Path\To\scantailor-advanced.exe"`
+2. the `SCANTAILOR_ADVANCED` environment variable
+3. `scantailor-advanced.exe` on `PATH`
+4. `%ProgramFiles%\ScanTailor Advanced\scantailor-advanced.exe` (and the
+   `ProgramFiles(x86)` / `ProgramW6432` / `LOCALAPPDATA` equivalents)
+
+A normal installer places the executable where step 4 finds it, so no flags are
+needed. For a portable `.zip`, extract it somewhere stable and use step 1 or 2.
+
+> Windows SmartScreen or antivirus may warn the first time you launch a freshly
+> downloaded ScanTailor Advanced binary. This is expected for an unsigned
+> third-party download; allow it to run if you trust the source.
+
+Confirm discovery with:
+
+```powershell
 uv run python -c "from scan_cleanup.scantailor import resolve_scantailor; print(resolve_scantailor())"
 ```
+
+### Installing Tesseract and Ghostscript
+
+```powershell
+winget install UB-Mannheim.TesseractOCR
+winget install ArtifexSoftware.GhostScript
+```
+
+Or install by hand:
+
+- **Tesseract** — the UB Mannheim build
+  (<https://github.com/UB-Mannheim/tesseract/wiki>). Enable "Add to PATH" during
+  setup, or add its folder (e.g. `C:\Program Files\Tesseract-OCR`) to `PATH`
+  afterwards. English language data is included by default.
+- **Ghostscript** — the 64-bit release from
+  <https://ghostscript.com/releases/gsdnld.html>. Add its `bin` folder (which
+  contains `gswin64c.exe`, e.g. `C:\Program Files\gs\gs10.03.1\bin`) to `PATH`.
+
+Close and reopen your terminal after changing `PATH`.
 
 ## Installation
 
 From a clone of the repository, create the locked development environment:
 
-```bash
-cd scan-cleanup
+```powershell
+cd scan-cleanup-windows
 uv sync
-```
-
-On macOS, OCR dependencies can be installed with:
-
-```bash
-brew install tesseract ghostscript
 ```
 
 ## Process a PDF
 
-```bash
-uv run scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY \
-  --scantailor /path/to/scantailor-advanced
+```powershell
+uv run scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --scantailor "C:\Path\To\scantailor-advanced.exe"
 ```
+
+(`--scantailor` can be omitted once ScanTailor Advanced is installed in its
+standard folder.) To split a long command across lines in PowerShell, end each
+line with a backtick `` ` ``.
 
 The final file is:
 
 ```text
-OUTPUT_DIRECTORY/INPUT_processed.pdf
+OUTPUT_DIRECTORY\INPUT_processed.pdf
 ```
 
 If that file already exists, the CLI asks before replacing it.
 
-For a local ScanTailor Advanced build:
+For a portable ScanTailor Advanced build:
 
-```bash
-uv run scan-cleanup process tests/data/MH_1976_vIV_bio_1-40.pdf output \
-  --scantailor /path/to/scantailor-advanced \
-  --workspace-root development-workspaces
+```powershell
+uv run scan-cleanup process "tests\data\MH_1976_vIV_bio_1-40.pdf" output `
+  --scantailor "C:\Tools\scantailor-advanced\scantailor-advanced.exe" `
+  --workspace-root C:\sc
 ```
 
 ScanTailor opens the generated project automatically. Review or adjust its
@@ -147,21 +173,30 @@ pre-OCR assembled PDF are needed for development or inspection.
 The workspace location depends only on `--workspace-root`; it is unrelated to
 where the input PDF or output directory live (`workspace.py`'s
 `create_workspace`). Without `--workspace-root`, the workspace is created under
-the OS default temp directory (macOS: `$TMPDIR`, e.g.
-`/var/folders/.../T/scan-cleanup-<stem>-<random>/`) regardless of whether the
-input or output paths are inside a cloud-synced folder (Google Drive, Dropbox,
-etc.) — so the hundreds of intermediate PNGs/TIFFs never get written into a
-folder a sync client is watching, even with no flag at all. Passing
-`--workspace-root DIR` only changes this for choosing a stable, inspectable
-path (e.g. for use with `--keep-workspace`); if `DIR` is itself inside a
-cloud-synced folder, prefer a local, non-synced path instead.
+the OS temp directory (`%TEMP%`, e.g.
+`C:\Users\<you>\AppData\Local\Temp\sc-<stem>-<random>\`) regardless of whether
+the input or output paths are inside a cloud-synced folder (OneDrive, Google
+Drive, Dropbox) — so the hundreds of intermediate PNGs/TIFFs never get written
+into a folder a sync client is watching.
+
+**Windows path length.** Windows rejects paths longer than 260 characters by
+default. Deep temp paths plus long volume names plus a synced-folder
+`--workspace-root` can hit that limit and cause confusing image-read errors. On
+Windows, prefer a short, local, non-synced workspace root:
+
+```powershell
+uv run scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --workspace-root C:\sc
+```
+
+(or enable long-path support via the `LongPathsEnabled` Group Policy / registry
+setting).
 
 ## Resume a failed workspace
 
 If ScanTailor closes with missing, extra, or unreadable TIFFs, the command stops
 and prints the workspace path. Correct the issue with:
 
-```bash
+```powershell
 uv run scan-cleanup resume WORKSPACE OUTPUT_DIRECTORY
 ```
 
@@ -171,9 +206,8 @@ and OCR are attempted again. A successful resume deletes the workspace unless
 
 ## Batch processing
 
-```bash
-uv run scan-cleanup batch INPUT_DIRECTORY OUTPUT_DIRECTORY \
-  --scantailor /path/to/scantailor-advanced
+```powershell
+uv run scan-cleanup batch INPUT_DIRECTORY OUTPUT_DIRECTORY --scantailor "C:\Path\To\scantailor-advanced.exe"
 ```
 
 ScanTailor opens once for each PDF, sequentially. Any input PDF whose
@@ -184,14 +218,17 @@ through, re-running the same command picks up only the unfinished files. Pass
 
 ## Development
 
-```bash
+```powershell
 uv run pytest
 uv run ruff check .
 uv build
 ```
 
-The GitHub Actions workflow performs the same lint, test, and package-build
-checks on pushes and pull requests.
+The GitHub Actions workflow runs lint, tests, and `uv build` on both
+`ubuntu-latest` and `windows-latest`. A separate `ocr-smoke-windows` job
+installs Tesseract and Ghostscript and runs `uv run pytest -m ocr_smoke`, the
+one test that exercises the real OCR pipeline end to end (it is skipped in the
+normal run when those programs are absent).
 
-The pre-revamp Python image-processing implementation is stored under
-`.snapshots/` with a SHA-256 checksum and is not part of the new Git history.
+See `WINDOWS_PORT.md` for the full list of Windows-specific changes and the
+verification steps still outstanding (`V1`, `V2`).

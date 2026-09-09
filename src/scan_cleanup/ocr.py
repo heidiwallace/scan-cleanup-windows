@@ -7,26 +7,38 @@ import ocrmypdf
 
 from scan_cleanup.config import Recipe
 
+# Each required program maps to a human-readable description and the command
+# names it may be installed under, in preference order. Ghostscript's console
+# executable is "gs" on macOS/Linux but "gswin64c" / "gswin32c" on Windows.
 _REQUIRED_BINARIES = {
-    "tesseract": "the OCR engine",
-    "gs": "Ghostscript, used to process the PDF",
+    "Tesseract": ("the OCR engine", ("tesseract",)),
+    "Ghostscript": ("used to process the PDF", ("gswin64c", "gswin32c", "gs")),
 }
 
-_INSTALL_INSTRUCTIONS = """
+_INSTALL_INSTRUCTIONS = r"""
 scan-cleanup requires two non-Python programs to be installed before OCR can
 run: Tesseract (the OCR engine) and Ghostscript. These are NOT installed by
-pip/uv — they need to be installed separately, like installing an app.
+pip/uv — they must be installed separately, like installing an app, and their
+folders must be on your PATH.
 
-On a Mac, the easiest way is with Homebrew:
+On Windows:
 
-  1. If you don't already have Homebrew, open Terminal and run:
-       /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-     Follow any instructions it prints when it finishes.
+  1. Tesseract — install the UB Mannheim build from
+       https://github.com/UB-Mannheim/tesseract/wiki
+     During setup, enable "Add to PATH" (or afterwards add its install folder,
+     e.g. C:\Program Files\Tesseract-OCR, to your PATH by hand). English
+     language data is included by default.
 
-  2. Then install the required programs:
-       brew install tesseract ghostscript
+  2. Ghostscript — install the 64-bit release from
+       https://ghostscript.com/releases/gsdnld.html
+     Then add its "bin" folder (which contains gswin64c.exe, e.g.
+     C:\Program Files\gs\gs10.03.1\bin) to your PATH.
 
-  3. Close and reopen Terminal, then run scan-cleanup again.
+  3. Close and reopen your terminal, then run scan-cleanup again.
+
+With a package manager instead:
+  winget install UB-Mannheim.TesseractOCR
+  winget install ArtifexSoftware.GhostScript
 
 See the README's Installation section for more detail.
 """.strip()
@@ -37,9 +49,13 @@ class MissingSystemDependencyError(RuntimeError):
 
 
 def check_system_dependencies() -> None:
-    missing = [name for name in _REQUIRED_BINARIES if shutil.which(name) is None]
+    missing = [
+        (label, description)
+        for label, (description, commands) in _REQUIRED_BINARIES.items()
+        if not any(shutil.which(command) for command in commands)
+    ]
     if missing:
-        missing_desc = ", ".join(f"'{name}' ({_REQUIRED_BINARIES[name]})" for name in missing)
+        missing_desc = ", ".join(f"{label} ({description})" for label, description in missing)
         raise MissingSystemDependencyError(
             f"Missing required program(s): {missing_desc}.\n\n{_INSTALL_INSTRUCTIONS}"
         )

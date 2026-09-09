@@ -1,0 +1,17 @@
+# Normalize line endings so a checkout is byte-identical on every OS.
+# Without this, Git on Windows (core.autocrlf=true) would rewrite text files
+# with CRLF on checkout, including the bundled ScanTailor project template.
+* text=auto eol=lf
+
+# ScanTailor Advanced reads and writes LF; keep the template that way.
+*.scantailor text eol=lf
+
+# Binary assets: never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.tif binary
+*.tiff binary
+*.tar.gz binary
+*.ico binary

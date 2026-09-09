@@ -5,10 +5,15 @@ __pycache__/
 .venv/
 dist/
 *.egg-info/
-.DS_Store
 .snapshots/
 development-workspaces/
-CLAUDE.md
+
+# OS clutter
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
 
 # Real scan data used for local/manual testing: potentially large and/or
 # contains real archival content, never committed.

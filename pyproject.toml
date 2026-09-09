@@ -1,11 +1,11 @@
 [project]
-name = "scan-cleanup"
-version = "0.2.0"
-description = "Coordinate ScanTailor Advanced cleanup and OCR for scanned PDFs"
+name = "scan-cleanup-windows"
+version = "0.3.0.dev0"
+description = "Windows build of scan-cleanup: coordinate ScanTailor Advanced cleanup and OCR for scanned PDFs"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["scanning", "scantailor", "ocr", "pdf"]
+keywords = ["scanning", "scantailor", "ocr", "pdf", "windows"]
 authors = [
     { name = "Heidi Wallace", email = "heidi.wallace.396@gmail.com" }
 ]
@@ -13,7 +13,7 @@ requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
-    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Topic :: Multimedia :: Graphics :: Capture :: Scanners",
@@ -35,6 +35,11 @@ scan-cleanup = "scan_cleanup.cli:main"
 requires = ["uv_build>=0.12.3,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+# Distribution is "scan-cleanup-windows" but the import package stays
+# "scan_cleanup" (unchanged from the macOS package, so fixes port cleanly).
+module-name = "scan_cleanup"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
@@ -46,3 +51,6 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "ocr_smoke: end-to-end OCR test; requires Tesseract and Ghostscript installed",
+]

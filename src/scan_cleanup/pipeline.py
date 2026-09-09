@@ -1,7 +1,10 @@
 """Interactive orchestration: extract -> ScanTailor -> assemble -> OCR."""
 
+import errno
 import logging
+import os
 import shutil
+import stat
 from pathlib import Path
 
 from scan_cleanup.config import Recipe
@@ -24,6 +27,48 @@ logger = logging.getLogger(__name__)
 def output_path_for(input_pdf: Path, output_dir: Path) -> Path:
     """Return the expected output path for a given input PDF."""
     return output_dir / f"{input_pdf.stem}_processed.pdf"
+
+
+def _move_replace(source: Path, destination: Path) -> None:
+    """Move ``source`` onto ``destination``, replacing any existing file.
+
+    ``Path.replace`` is a rename, which fails across drives on Windows
+    (WinError 17 / errno EXDEV) — common here because the workspace lives on the
+    system drive while the output directory may be on another drive, a network
+    share, or a synced folder. Fall back to a copy-then-delete in that case.
+    """
+    try:
+        os.replace(source, destination)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 17 or exc.errno == errno.EXDEV:
+            destination.unlink(missing_ok=True)
+            shutil.move(str(source), str(destination))
+        else:
+            raise
+
+
+def _remove_workspace(workspace: Path) -> None:
+    """Delete a finished workspace, tolerating Windows file locking.
+
+    On Windows a directory removal can fail because a file is still held open
+    (antivirus, a lingering ScanTailor child, an Explorer preview) or marked
+    read-only. Clear the read-only bit and retry each failed entry; if the
+    directory still can't be fully removed, warn and move on — the output PDF is
+    already in place, so a leftover temp folder is not fatal.
+    """
+
+    def retry(func, path, _exc):
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except OSError:
+            pass  # reported by the residual-directory check below
+
+    shutil.rmtree(workspace, onexc=retry)
+    if workspace.exists():
+        logger.warning(
+            "Could not fully remove workspace %s; it can be deleted manually.", workspace
+        )
 
 
 def process_volume(
@@ -76,7 +121,7 @@ def process_volume(
         raise ScanTailorError(message) from exc
 
     if recipe.cleanup_workspace_on_success:
-        shutil.rmtree(workspace)
+        _remove_workspace(workspace)
     else:
         logger.info("Development workspace retained: %s", workspace)
     return result
@@ -115,7 +160,7 @@ def finish_workspace(
     add_ocr_layer(assembled_pdf, ocr_pdf, recipe)
     if output_pdf.exists() and not overwrite:
         raise FileExistsError(f"Output PDF appeared during processing: {output_pdf}")
-    ocr_pdf.replace(output_pdf)
+    _move_replace(ocr_pdf, output_pdf)
     logger.info("Done: %s", output_pdf)
     return output_pdf
 
@@ -135,7 +180,7 @@ def resume_workspace(
     launch_scantailor(executable, workspace / manifest.project_file)
     result = finish_workspace(workspace, output_dir, recipe, overwrite=overwrite)
     if (recipe or Recipe()).cleanup_workspace_on_success:
-        shutil.rmtree(workspace)
+        _remove_workspace(workspace)
     return result
 
 

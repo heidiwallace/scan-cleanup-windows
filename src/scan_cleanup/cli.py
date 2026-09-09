@@ -87,7 +87,23 @@ def _output_path(input_pdf: Path, output_dir: Path) -> Path:
     return output_dir / f"{input_pdf.stem}_processed.pdf"
 
 
+def _make_streams_lenient() -> None:
+    """Keep a non-ASCII path in a message from raising a secondary error.
+
+    When output is redirected or piped on Windows, stdout/stderr use a legacy
+    code page; printing a filename with non-ASCII characters then raises
+    UnicodeEncodeError, masking the real message. Fall back to escaping such
+    characters instead of failing.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _make_streams_lenient()
     parser = build_parser()
     args = parser.parse_args(argv)
     logging.basicConfig(

@@ -981,8 +981,8 @@ wheels = [
 ]
 
 [[package]]
-name = "scan-cleanup"
-version = "0.2.0"
+name = "scan-cleanup-windows"
+version = "0.3.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "img2pdf" },

@@ -7,6 +7,8 @@ import img2pdf
 import numpy as np
 import pymupdf
 
+from scan_cleanup._imageio import imwrite_unicode
+
 
 def extract_page_images(pdf_path: Path) -> list[np.ndarray]:
     """Extract each page's embedded scan image, in page order.
@@ -60,7 +62,7 @@ def extract_pages_to_png(pdf_path: Path, output_dir: Path, dpi: int) -> list[Pat
                 image_bytes = doc.extract_image(image_refs[0][0])["image"]
                 image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_UNCHANGED)
                 if image is not None:
-                    wrote = cv2.imwrite(str(output_path), image)
+                    wrote = imwrite_unicode(output_path, image)
             if not wrote:
                 pixmap = page.get_pixmap(dpi=dpi, alpha=False)
                 pixmap.save(output_path)

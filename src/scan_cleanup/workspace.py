@@ -3,11 +3,21 @@
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 MANIFEST_NAME = "workspace.json"
+
+# Characters outside this set are stripped from a directory-name stem. Covers
+# everything Windows forbids in a path component (< > : " / \ | ? *) plus
+# spaces and other punctuation, so the temp folder name is always portable.
+_UNSAFE_STEM_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+# Cap the stem so the full workspace path stays clear of Windows' 260-character
+# limit even under a deep temp root.
+_MAX_STEM_LENGTH = 40
 
 
 @dataclass(frozen=True)
@@ -35,12 +45,26 @@ class WorkspaceManifest:
         )
 
 
+def safe_stem(input_stem: str) -> str:
+    """A filesystem-safe, length-bounded version of ``input_stem``.
+
+    Strips characters that are invalid in a Windows path component and truncates
+    to keep the eventual workspace path well under the 260-character limit.
+    Falls back to ``"volume"`` if nothing usable remains.
+    """
+    cleaned = _UNSAFE_STEM_CHARS.sub("-", input_stem).strip("-")
+    return cleaned[:_MAX_STEM_LENGTH] or "volume"
+
+
 def create_workspace(input_stem: str, workspace_root: Path | None = None) -> Path:
+    stem = safe_stem(input_stem)
     if workspace_root is not None:
         workspace_root.mkdir(parents=True, exist_ok=True)
-        workspace = Path(tempfile.mkdtemp(prefix=f"{input_stem}-", dir=workspace_root))
+        workspace = Path(tempfile.mkdtemp(prefix=f"{stem}-", dir=workspace_root))
     else:
-        workspace = Path(tempfile.mkdtemp(prefix=f"scan-cleanup-{input_stem}-"))
+        # Short fixed prefix ("sc-", not "scan-cleanup-") to conserve path
+        # length; the Windows default temp directory is already deep.
+        workspace = Path(tempfile.mkdtemp(prefix=f"sc-{stem}-"))
     (workspace / "input").mkdir()
     (workspace / "out").mkdir()
     return workspace

@@ -6,7 +6,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,3 +30,25 @@ jobs:
 
       - name: Build package
         run: uv build
+
+  # Separate job: exercise the real OCR toolchain (Tesseract + Ghostscript) on
+  # Windows, since ocrmypdf's Windows support is best-effort (WINDOWS_PORT.md V2).
+  ocr-smoke-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install Tesseract and Ghostscript
+        run: |
+          choco install --no-progress -y tesseract ghostscript
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: OCR smoke test
+        run: uv run pytest -m ocr_smoke -v
