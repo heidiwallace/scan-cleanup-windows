@@ -7,6 +7,8 @@ dist/
 *.egg-info/
 .snapshots/
 development-workspaces/
+WINDOWS_PORT.md
+CLAUDE.md
 
 # OS clutter
 .DS_Store
