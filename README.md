@@ -95,23 +95,35 @@ note.
 
 ### Step 4: Download and set up scan-cleanup
 
-Get a copy of this `scan-cleanup-windows` folder onto your computer (however
-it was shared with you — for example, unzip it into your Documents folder),
-then in PowerShell, navigate into it. If it's in Documents, run:
+Choose a location for `scan-cleanup` — for example, your Documents folder —
+and navigate there in PowerShell. If you'd like to put it in Documents, run:
 
 ```powershell
-cd ~\Documents\scan-cleanup-windows
+cd ~\Documents
 ```
 
-(adjust the path if you put it somewhere else), then set it up:
+Downloading the code uses Git, a program for downloading and tracking
+project code. If you don't already have it, install it with:
 
 ```powershell
+winget install Git.Git
+```
+
+**Close this PowerShell window and open a new one** afterward, then continue
+from your chosen location (e.g. `cd ~\Documents` again). Now download a copy
+of `scan-cleanup` and set it up:
+
+```powershell
+git clone https://github.com/heidiwallace/scan-cleanup-windows.git
+cd scan-cleanup-windows
 uv sync
 ```
 
-That's it — setup is done. From now on, run every command below from inside
-that folder — if you ever close PowerShell and reopen it, just run the `cd`
-command above again to get back there.
+That's it — setup is done, and you should now have a `scan-cleanup-windows`
+folder inside Documents (or wherever you chose). From now on, run every
+command below from inside that folder — if you ever close PowerShell and
+reopen it, just run `cd ~\Documents\scan-cleanup-windows` (adjusting the
+path if you chose somewhere else) to get back there.
 
 ## Using scan-cleanup
 
