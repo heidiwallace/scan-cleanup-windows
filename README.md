@@ -52,21 +52,15 @@ install finishes.
 ### Step 2: Install ScanTailor Advanced
 
 ScanTailor Advanced is the program you'll use to review and adjust each
-scanned page. The project's current GitHub repository
-(<https://github.com/ScanTailor-Advanced/scantailor-advanced>) only publishes
-Linux builds now, so download the installer instead from the original
-developer's GitHub project, which still hosts the last Windows release:
+scanned page. Download the installer from its developer's official GitHub
+page:
 
 - 64-bit (use this on a normal modern PC):
   <https://github.com/4lex4/scantailor-advanced/releases/download/v1.0.16/scantailor-advanced-1.0.16-win64.exe>
 - 32-bit (only if you know you're on a 32-bit Windows install):
   <https://github.com/4lex4/scantailor-advanced/releases/download/v1.0.16/scantailor-advanced-1.0.16-win32.exe>
 
-This is an older version (v1.0.16, from 2019 — the last one built for
-Windows before the project moved to the Linux-only-releasing repository
-above), but it's a genuine official release directly from GitHub, which is
-safer to trust than a third-party mirror site. Run the downloaded installer
-once it finishes downloading.
+Run the downloaded installer once it finishes downloading.
 
 > **A security warning is normal.** The first time you launch a freshly
 > downloaded ScanTailor Advanced, Windows may show a blue "Windows protected
@@ -78,8 +72,9 @@ once it finishes downloading.
 Once installed, `scan-cleanup` will be able to find ScanTailor Advanced
 automatically — you won't need to point to it manually, as long as it went
 into its normal install location. (If you were given a "portable" version
-instead — a `.zip` file rather than an installer — see the technical
-appendix below for how to point `scan-cleanup` at it directly.)
+instead — a `.zip` file you extracted somewhere, rather than something
+installed via the installer above — pass its path directly:
+`scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --scantailor "C:\path\to\scantailor-advanced.exe"`.)
 
 ### Step 3: Install the other required programs
 
@@ -93,8 +88,7 @@ Install Tesseract with:
 winget install UB-Mannheim.TesseractOCR
 ```
 
-Ghostscript isn't available through `winget` anymore, so install it by hand
-instead:
+Install Ghostscript by hand:
 
 1. Go to <https://ghostscript.com/releases/gsdnld.html> and download the
    64-bit Windows release (look for a filename like
@@ -106,8 +100,12 @@ automatically by `scan-cleanup` — there's nothing else to do here, even if a
 plain `tesseract --version` in PowerShell says "not recognized" (that
 command only checks your shell's own settings, which `scan-cleanup` doesn't
 depend on). If `scan-cleanup` itself still reports one as missing when you
-actually run it, see the technical appendix's "Adding a program to PATH by
-hand" note.
+actually run it, it was likely installed somewhere other than its normal
+location — find its install folder (Tesseract:
+`C:\Program Files\Tesseract-OCR`; Ghostscript's `bin` folder:
+`C:\Program Files\gs\gs<version>\bin`), add it via **Start → "Edit the
+system environment variables" → Environment Variables**, then close and
+reopen PowerShell.
 
 ### Step 4: Install scan-cleanup
 
@@ -187,11 +185,11 @@ to keep those in-between files (useful for troubleshooting), add
 > computer's main drive, in a short folder path, rather than deep inside a
 > long chain of folders or a synced folder like OneDrive or Google Drive.
 > Windows has an old rule that file locations longer than 260 characters can
-> cause confusing errors, and
-> the more nested or synced your folders are, the more likely you are to hit
-> it. If you do run into strange file-not-found errors partway through,
-> this is the first thing to check — see the technical appendix for the
-> details and a workaround.
+> cause confusing errors, and the more nested or synced your folders are,
+> the more likely you are to hit it. If you run into strange
+> file-not-found errors partway through, this is the first thing to check:
+> add `--workspace-root C:\sc` to your command to use a short, local folder
+> instead of the default location.
 
 ### If something goes wrong partway through
 
@@ -222,304 +220,3 @@ partway through, you can simply run the same command again later — any PDF
 that's already been finished will be skipped automatically, so you'll pick up
 right where you left off. If you'd like to redo files that were already
 finished, add `--overwrite` to the command.
-
-## Technical appendix
-
-The rest of this README is written for contributors working on the
-`scan-cleanup` codebase itself — it isn't needed to run the tool day to day.
-
-### What's different about this Windows build
-
-This package is functionally identical to the macOS `scan-cleanup` package —
-same command, same pipeline, same options. The differences are entirely
-platform plumbing:
-
-- **Ghostscript's command name.** Ghostscript's command-line executable is
-  called `gs` on macOS/Linux but `gswin64c` (or `gswin32c` on a 32-bit
-  install) on Windows. `ocr.py`'s `_REQUIRED_BINARIES` maps a human-readable
-  label to a tuple of acceptable command names, and the dependency check
-  passes if any one of them resolves via `shutil.which`.
-- **Ghostscript and Tesseract discovery.** Ghostscript's Windows installer
-  never adds itself to `PATH` at all — no checkbox for it exists. Tesseract's
-  UB Mannheim build does offer an "Add to PATH" checkbox, but it has been
-  observed not to take effect reliably in practice, leaving a genuinely
-  installed `tesseract.exe` unreachable by name anyway. `ocr.py`'s
-  `_ensure_windows_ghostscript_discoverable()` and
-  `_ensure_windows_tesseract_discoverable()` each check their program's
-  standard install location (`%ProgramFiles%\gs\gs<version>\bin\` /
-  `%ProgramFiles%\Tesseract-OCR\`, also checking `%ProgramFiles(x86)%`) and,
-  if `shutil.which` can't already find the program, prepend that folder to
-  the current process's `PATH` so both the dependency check and every
-  subprocess `ocrmypdf` launches afterward (which inherit that environment)
-  can find it. This mirrors `resolve_scantailor()`'s fixed-location fallback
-  for the same underlying reason — Windows installers vary in whether `PATH`
-  actually ends up set, regardless of what their installer claims to do, and
-  this package can't assume it did.
-- **ScanTailor Advanced discovery.** `resolve_scantailor()` in
-  `scantailor.py` checks, in order: an explicit `--scantailor` path, the
-  `SCANTAILOR_ADVANCED` environment variable, `scantailor-advanced.exe` on
-  `PATH`, then — because the Windows installer does not add itself to
-  `PATH` — a `sys.platform == "win32"` branch that checks
-  `<root>\<folder>\scantailor-advanced.exe` for each of `%ProgramFiles%`,
-  `%ProgramFiles(x86)%`, `%ProgramW6432%`, `%LOCALAPPDATA%`, and folder name
-  in `ScanTailor Advanced`, `STAdvanced`, `ScanTailor`. (These exact folder
-  names carry a `TODO(win-verify)` in the code pending confirmation against a
-  real installed build — see `CLAUDE.md`'s "Still to do" list.) A portable
-  `.zip` build has no fixed install location, so it must be pointed at
-  directly via `--scantailor` or `SCANTAILOR_ADVANCED`.
-- **Cross-drive file moves.** The final step moves the finished PDF out of
-  the temporary workspace (always on `C:`) into the user's chosen output
-  folder, which may be on a different drive, an external disk, or a network
-  share. A plain rename (`os.replace`) only works within one drive on
-  Windows and raises `WinError 17` across drives, so `pipeline.py`'s
-  `_move_replace()` catches that specific error and falls back to
-  copy-then-delete (`shutil.move`).
-- **Unicode file paths.** OpenCV (`cv2.imread`/`imwrite`) silently fails on
-  Windows when a file path contains non-ASCII characters — which can happen
-  via a Windows username with an accent, or a source PDF filename with one.
-  `_imageio.py` reads and writes image files via `np.fromfile`/`np.tofile`
-  combined with `cv2.imdecode`/`imencode` instead, which is Unicode-safe;
-  `pdf_io.py` and `scantailor.py` use these helpers for every file-path image
-  read/write.
-- **Workspace folder cleanup.** Deleting the temporary workspace can fail on
-  Windows if another process (antivirus, a leftover ScanTailor instance,
-  Explorer showing a thumbnail) still has a file open inside it.
-  `pipeline.py`'s `_remove_workspace()` clears the read-only attribute,
-  retries, and logs a warning instead of raising if deletion still fails —
-  the finished PDF is already safely written by that point.
-- **Short workspace folder names.** The temp-folder prefix is `sc-` here
-  (rather than `scan-cleanup-` on macOS) to conserve path length against
-  Windows' 260-character limit (see below). `workspace.py`'s `safe_stem()`
-  also strips characters Windows forbids in filenames (`< > : " | ? *`) and
-  caps the stem at 40 characters.
-- **Case-insensitive TIFF name matching.** `scantailor.py`'s
-  `validate_output()` compares ScanTailor's output filenames against the
-  expected list case-insensitively, in case a Windows ScanTailor build ever
-  writes e.g. `PAGE-01.TIF` instead of `page-01.tif`.
-- **Lenient console output.** `cli.py`'s `_make_streams_lenient()` sets
-  `errors="backslashreplace"` on stdout/stderr, so printing an error message
-  containing a non-ASCII path can't itself throw a secondary
-  `UnicodeEncodeError` when output is redirected to a file or another
-  program.
-- **Line endings.** `.gitattributes` pins the repo to LF line endings so a
-  Windows checkout doesn't rewrite the bundled `.scantailor` XML template
-  with CRLF endings (Git on Windows converts line endings on checkout by
-  default unless told not to).
-
-None of this affects behavior a user would notice; it's documented here so a
-future contributor porting a fix between this repo and the macOS
-`scan-cleanup` package knows which lines are Windows-specific plumbing versus
-shared logic.
-
-### Windows' 260-character path length limit
-
-By default, Windows rejects any file path longer than 260 characters. This
-package's temporary workspace folders nest several levels deep (something
-like `...\Temp\sc-<pdf name>-<random>\out\<pdf name>-NN.tif`), and a deep or
-already-long `--workspace-root` (especially inside a synced OneDrive/Google
-Drive tree, which adds its own long prefix) can push a path over that limit.
-When it happens, the symptom is a confusing image-read or image-write error
-partway through, not an explicit "path too long" message.
-
-Two mitigations, either is enough on its own:
-
-- Point `--workspace-root` at something short and local, e.g.:
-
-  ```powershell
-  scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --workspace-root C:\sc
-  ```
-
-- Or enable long-path support system-wide via the `LongPathsEnabled` Group
-  Policy / registry setting (search "enable long paths Windows 10/11" for
-  the exact steps for your Windows edition).
-
-### Adding a program to PATH by hand
-
-`PATH` is the list of folders Windows searches when you type a command name.
-`scan-cleanup` doesn't need Tesseract or Ghostscript on `PATH` for a standard
-install location — it finds both automatically (see "Ghostscript and
-Tesseract discovery" above). This step is only needed if you installed one
-of them somewhere nonstandard, or if you specifically want raw commands like
-`tesseract --version` or `gswin64c --version` to work directly in
-PowerShell for your own convenience:
-
-1. Find the program's install folder — Tesseract is typically under
-   `C:\Program Files\Tesseract-OCR`; Ghostscript's `bin` folder (containing
-   `gswin64c.exe`) is typically under `C:\Program Files\gs\gs<version>\bin`.
-2. Search the web for "add a folder to PATH Windows 11" (or 10) for the
-   current System Properties dialog steps, or reinstall the program and make
-   sure any "Add to PATH" checkbox is ticked during setup.
-3. Close and reopen PowerShell — a window opened before the change won't see
-   it.
-
-### Using a portable (`.zip`) ScanTailor Advanced build
-
-If you have a portable ScanTailor Advanced — a `.zip` you extracted somewhere
-rather than something installed via a `.exe` installer — it has no fixed
-location for `scan-cleanup` to find automatically. Either pass its path on
-every run:
-
-```powershell
-scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --scantailor "C:\Tools\scantailor-advanced\scantailor-advanced.exe"
-```
-
-or set it once per PowerShell session (or in your PowerShell profile, to make
-it permanent):
-
-```powershell
-$env:SCANTAILOR_ADVANCED = "C:\Tools\scantailor-advanced\scantailor-advanced.exe"
-```
-
-### Splitting a command across multiple lines
-
-PowerShell uses a backtick `` ` `` at the end of a line to continue a command
-onto the next line (unlike the backslash used in bash/macOS examples). The
-example below uses the repo's bundled sample PDF and `uv run`, so it assumes
-a local development checkout (see "Development" below) rather than the
-`uv tool install` route end users take:
-
-```powershell
-uv run scan-cleanup process "tests\data\MH_1976_vIV_bio_1-40.pdf" output `
-  --scantailor "C:\Tools\scantailor-advanced\scantailor-advanced.exe" `
-  --workspace-root C:\sc
-```
-
-### The bundled ScanTailor project template
-
-Rather than generating a bare ScanTailor Advanced project from scratch for
-every job, `scan-cleanup` ships a pre-configured project file at
-`src/scan_cleanup/templates/scantailor-advanced-default.scantailor` and
-adapts it to each input. This gives every job the same sensible Output-stage
-starting point without the user having to configure ScanTailor Advanced by
-hand each time (see "Default ScanTailor settings" below for exactly what it
-sets).
-
-The template itself is just the project file saved at the end of the first
-successful end-to-end test, so it reflects one real, human-reviewed 40-page
-session (600 DPI output, plus that session's per-page transformations) rather
-than being written by hand. Because the per-page geometry it contains (Select
-Content, Page Layout) belongs to that specific 40-page scan, `scan-cleanup`
-clears it when generating a new project — every job starts from a blank page
-layout, while keeping the template's Output-stage recipe intact. Content
-detection starts disabled; Page Box detection starts on Auto with Fine Tune
-Page Corners enabled; "Match page size with other pages" starts unchecked.
-
-### Default ScanTailor settings
-
-These are the Output-stage settings baked into the bundled project template
-and applied to every page by default. Any of them can be changed per-page (or
-for the whole batch) inside the interactive ScanTailor Advanced session
-before processing:
-
-- Output DPI = 600
-- Color mode = Black and white
-- Binarization method = Otsu
-- Otsu threshold adjustment = -15 (renders text thinner than a plain Otsu threshold)
-- Despeckle level = 2 (Normal)
-- Morphological smoothing = on
-- Normalize illumination (B&W) = on
-- Picture shape detection = Free, sensitivity 100
-- Dewarping = off
-- Content detection = disabled (Page Box detection: Auto, Fine Tune Page Corners = on)
-- Match page size with other pages = off
-
-### Input page counts beyond the template
-
-Inputs are not limited to 40 pages. An input with fewer pages uses the
-template's first N pages' settings; an input with more pages clones the
-template's last page (files, filter settings, and the output recipe) for each
-additional page, under fresh ids. Cloned pages inherit the same output recipe
-(DPI, binarization, etc.) as the rest of the volume, but their auto-detected
-geometry (page split, deskew, fix orientation) is a starting point, not a
-guarantee — review it like any other page during the interactive ScanTailor
-session.
-
-### Workspace location and lifecycle
-
-Each run creates a "workspace": a directory holding the extracted PNGs, the
-generated `.ScanTailor` project, the resulting TIFFs, `workspace.json` (see
-"Page ordering guarantee" below), and — once assembled — the pre-OCR PDF.
-
-The workspace location depends only on `--workspace-root`; it is unrelated to
-where the input PDF or output directory live (`workspace.py`'s
-`create_workspace`). Without `--workspace-root`, the workspace is created
-under the OS temp directory (`%TEMP%`, e.g.
-`C:\Users\<you>\AppData\Local\Temp\sc-<stem>-<random>\`) regardless of
-whether the input or output paths are inside a cloud-synced folder (OneDrive,
-Google Drive, Dropbox) — so the hundreds of intermediate PNGs/TIFFs never get
-written into a folder a sync client is watching, even with no flag at all.
-
-Successful workspaces are deleted after the final OCR PDF has been written.
-Failed or incomplete workspaces are always retained, so their contents can be
-inspected to diagnose what went wrong. During development, pass
-`--keep-workspace` to retain a successful workspace for inspection too.
-
-### Page ordering guarantee
-
-The package never trusts filesystem iteration (e.g. directory listing order)
-to determine page order, since that isn't guaranteed to match the original
-PDF's page order across filesystems. Instead, the extraction step records the
-authoritative order in `workspace.json`, and the final TIFFs are assembled
-only after a complete one-to-one filename validation against that record.
-
-### Development
-
-Contributing requires a local checkout, unlike the `uv tool install` route
-end users take:
-
-```powershell
-git clone https://github.com/heidiwallace/scan-cleanup-windows.git
-cd scan-cleanup-windows
-uv sync
-```
-
-Before opening a pull request, run the same checks the CI workflow runs:
-
-```powershell
-uv run pytest
-uv run ruff check .
-uv build
-```
-
-GitHub Actions runs these checks (lint, test, package build) on both
-`ubuntu-latest` and `windows-latest`. A separate `ocr-smoke-windows` job
-installs Tesseract and Ghostscript on the Windows runner and runs
-`uv run pytest -m ocr_smoke`, the one test that exercises the real OCR
-pipeline end to end (it is skipped in the normal run on any machine where
-those programs are absent).
-
-### Updating an installed copy of scan-cleanup
-
-Anyone who installed via `uv tool install` (the end-user route in Step 4, not
-a development checkout) picks up new pushes to `main` with:
-
-```powershell
-uv tool upgrade scan-cleanup-windows
-```
-
-The package is named `scan-cleanup-windows` for this purpose, even though the
-command it exposes day to day is `scan-cleanup` — `uv tool list` shows the
-installed name if there's any doubt. `uv tool upgrade` re-resolves the git
-source and reinstalls only if the resolved commit changed (verified
-directly: it does fetch the latest commit on the default branch, not just
-reuse whatever commit was cached at install time). If it ever behaves
-unexpectedly, a from-scratch reinstall is the reliable fallback:
-
-```powershell
-uv tool install --force git+https://github.com/heidiwallace/scan-cleanup-windows
-```
-
-### Relationship to the macOS package
-
-This is a fork of the macOS `scan-cleanup` package, forked at
-`/Users/heidiwallace/dev/scan-cleanup`, and is published as a separate
-distribution (`scan-cleanup-windows`) so both can be installed or published
-independently. The import package name (`scan_cleanup`) and the console
-command (`scan-cleanup`) are kept identical to the macOS package so fixes
-port cleanly between the two codebases. The macOS package is never edited
-from here, and this package should not have macOS-specific code re-added to
-it.
-
-See `WINDOWS_PORT.md` for the full list of Windows-specific changes and the
-verification steps still outstanding (`V1`, `V2`), and `CLAUDE.md` for the
-current state of that verification work.

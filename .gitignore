@@ -9,6 +9,7 @@ dist/
 development-workspaces/
 WINDOWS_PORT.md
 CLAUDE.md
+TROUBLESHOOTING.md
 
 # OS clutter
 .DS_Store
