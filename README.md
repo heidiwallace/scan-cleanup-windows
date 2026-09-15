@@ -99,20 +99,15 @@ instead:
 1. Go to <https://ghostscript.com/releases/gsdnld.html> and download the
    64-bit Windows release (look for a filename like
    `gs10.xx.x-x64-installer.exe`).
-2. Run the downloaded installer, accepting the defaults. `scan-cleanup` will
-   find it automatically afterward — there's nothing else to do here.
+2. Run the downloaded installer, accepting the defaults.
 
-**Close this PowerShell window and open a new one** afterward, so it picks up
-Tesseract. To check it installed correctly, run:
-
-```powershell
-tesseract --version
-```
-
-It should print a version number. If it says something like "not
-recognized," try closing PowerShell and reopening it once more, or
-reinstalling Tesseract — if it still doesn't work, see the technical
-appendix's "Adding a program to PATH by hand" note.
+For both programs, a standard install to its default location is found
+automatically by `scan-cleanup` — there's nothing else to do here, even if a
+plain `tesseract --version` in PowerShell says "not recognized" (that
+command only checks your shell's own settings, which `scan-cleanup` doesn't
+depend on). If `scan-cleanup` itself still reports one as missing when you
+actually run it, see the technical appendix's "Adding a program to PATH by
+hand" note.
 
 ### Step 4: Install scan-cleanup
 
@@ -244,19 +239,22 @@ platform plumbing:
   install) on Windows. `ocr.py`'s `_REQUIRED_BINARIES` maps a human-readable
   label to a tuple of acceptable command names, and the dependency check
   passes if any one of them resolves via `shutil.which`.
-- **Ghostscript discovery.** Ghostscript's Windows installer never adds
-  itself to `PATH` — no checkbox for it exists, unlike Tesseract's UB
-  Mannheim build — so even a completely standard install leaves
-  `gswin64c.exe` unreachable by name. `ocr.py`'s
-  `_ensure_windows_ghostscript_discoverable()` checks the standard install
-  location (`%ProgramFiles%\gs\gs<version>\bin\`, also checking
-  `%ProgramFiles(x86)%`) and, if `shutil.which` can't already find any of
-  Ghostscript's command names, prepends that folder to the current
-  process's `PATH` so both the dependency check and every subprocess
-  `ocrmypdf` launches afterward (which inherit that environment) can find
-  it. This mirrors `resolve_scantailor()`'s fixed-location fallback for the
-  same underlying reason — Windows installers vary in whether they touch
-  `PATH` at all, and this package can't assume they do.
+- **Ghostscript and Tesseract discovery.** Ghostscript's Windows installer
+  never adds itself to `PATH` at all — no checkbox for it exists. Tesseract's
+  UB Mannheim build does offer an "Add to PATH" checkbox, but it has been
+  observed not to take effect reliably in practice, leaving a genuinely
+  installed `tesseract.exe` unreachable by name anyway. `ocr.py`'s
+  `_ensure_windows_ghostscript_discoverable()` and
+  `_ensure_windows_tesseract_discoverable()` each check their program's
+  standard install location (`%ProgramFiles%\gs\gs<version>\bin\` /
+  `%ProgramFiles%\Tesseract-OCR\`, also checking `%ProgramFiles(x86)%`) and,
+  if `shutil.which` can't already find the program, prepend that folder to
+  the current process's `PATH` so both the dependency check and every
+  subprocess `ocrmypdf` launches afterward (which inherit that environment)
+  can find it. This mirrors `resolve_scantailor()`'s fixed-location fallback
+  for the same underlying reason — Windows installers vary in whether `PATH`
+  actually ends up set, regardless of what their installer claims to do, and
+  this package can't assume it did.
 - **ScanTailor Advanced discovery.** `resolve_scantailor()` in
   `scantailor.py` checks, in order: an explicit `--scantailor` path, the
   `SCANTAILOR_ADVANCED` environment variable, `scantailor-advanced.exe` on
@@ -338,9 +336,12 @@ Two mitigations, either is enough on its own:
 ### Adding a program to PATH by hand
 
 `PATH` is the list of folders Windows searches when you type a command name.
-`winget install` normally adds a new program to `PATH` automatically, but if
-`tesseract --version` or `gswin64c --version` says "not recognized" after
-reopening PowerShell:
+`scan-cleanup` doesn't need Tesseract or Ghostscript on `PATH` for a standard
+install location — it finds both automatically (see "Ghostscript and
+Tesseract discovery" above). This step is only needed if you installed one
+of them somewhere nonstandard, or if you specifically want raw commands like
+`tesseract --version` or `gswin64c --version` to work directly in
+PowerShell for your own convenience:
 
 1. Find the program's install folder — Tesseract is typically under
    `C:\Program Files\Tesseract-OCR`; Ghostscript's `bin` folder (containing

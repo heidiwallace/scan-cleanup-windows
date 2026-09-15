@@ -26,9 +26,9 @@ On Windows:
 
   1. Tesseract — install the UB Mannheim build from
        https://github.com/UB-Mannheim/tesseract/wiki
-     During setup, enable "Add to PATH" (or afterwards add its install folder,
-     e.g. C:\Program Files\Tesseract-OCR, to your PATH by hand). English
-     language data is included by default. A package manager also works:
+     A standard install to its default location (C:\Program Files\Tesseract-OCR)
+     is found automatically — no PATH changes needed. English language data
+     is included by default. A package manager also works:
        winget install UB-Mannheim.TesseractOCR
 
   2. Ghostscript — install the 64-bit release from
@@ -70,6 +70,24 @@ def _find_windows_ghostscript_bin_dir() -> Path | None:
     return matches[-1].parent
 
 
+def _find_windows_tesseract_dir() -> Path | None:
+    """Locate Tesseract's install folder in its default Windows location.
+
+    The UB Mannheim installer this project documents does offer an "Add to
+    PATH" checkbox, but in practice this has been observed not to take
+    effect reliably (confirmed: a user with Tesseract genuinely installed
+    still got "not recognized" from a fresh terminal). Falling back to the
+    standard install location, the same way Ghostscript already is, avoids
+    depending on that checkbox actually working.
+    """
+    program_roots = (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)"))
+    for root in filter(None, program_roots):
+        candidate = Path(root, "Tesseract-OCR")
+        if (candidate / "tesseract.exe").is_file():
+            return candidate
+    return None
+
+
 def _ensure_windows_ghostscript_discoverable() -> None:
     """Make a standard Ghostscript install visible to shutil.which and ocrmypdf.
 
@@ -85,9 +103,19 @@ def _ensure_windows_ghostscript_discoverable() -> None:
         os.environ["PATH"] = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
 
 
+def _ensure_windows_tesseract_discoverable() -> None:
+    """Make a standard Tesseract install visible to shutil.which and ocrmypdf."""
+    if shutil.which("tesseract"):
+        return
+    tesseract_dir = _find_windows_tesseract_dir()
+    if tesseract_dir is not None:
+        os.environ["PATH"] = str(tesseract_dir) + os.pathsep + os.environ.get("PATH", "")
+
+
 def check_system_dependencies() -> None:
     if sys.platform == "win32":
         _ensure_windows_ghostscript_discoverable()
+        _ensure_windows_tesseract_discoverable()
     missing = [
         (label, description)
         for label, (description, commands) in _REQUIRED_BINARIES.items()

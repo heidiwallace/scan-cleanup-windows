@@ -102,9 +102,10 @@ def test_ensure_windows_ghostscript_discoverable_noop_when_already_on_path(monke
 
 
 def test_check_system_dependencies_calls_windows_discovery_only_on_win32(monkeypatch, tmp_path):
-    """check_system_dependencies() must invoke the Windows fallback only on win32."""
+    """check_system_dependencies() must invoke the Windows fallbacks only on win32."""
     called = []
     monkeypatch.setattr(ocr, "_ensure_windows_ghostscript_discoverable", lambda: called.append(1))
+    monkeypatch.setattr(ocr, "_ensure_windows_tesseract_discoverable", lambda: called.append(2))
     monkeypatch.setattr(ocr.shutil, "which", lambda _name: "present")
 
     monkeypatch.setattr(ocr.sys, "platform", "darwin")
@@ -113,7 +114,55 @@ def test_check_system_dependencies_calls_windows_discovery_only_on_win32(monkeyp
 
     monkeypatch.setattr(ocr.sys, "platform", "win32")
     ocr.check_system_dependencies()
-    assert called == [1]
+    assert called == [1, 2]
+
+
+# --- Tesseract fixed-location discovery on Windows ---------------------------
+#
+# The UB Mannheim installer's "Add to PATH" option has been observed not to
+# take effect reliably, so this fallback mirrors Ghostscript's.
+
+
+def test_find_windows_tesseract_dir_locates_standard_install(monkeypatch, tmp_path):
+    tesseract_dir = tmp_path / "Tesseract-OCR"
+    tesseract_dir.mkdir()
+    (tesseract_dir / "tesseract.exe").write_text("stub")
+
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+
+    assert ocr._find_windows_tesseract_dir() == tesseract_dir
+
+
+def test_find_windows_tesseract_dir_returns_none_when_absent(monkeypatch, tmp_path):
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+
+    assert ocr._find_windows_tesseract_dir() is None
+
+
+def test_ensure_windows_tesseract_discoverable_prepends_path_when_found(monkeypatch, tmp_path):
+    tesseract_dir = tmp_path / "Tesseract-OCR"
+    tesseract_dir.mkdir()
+    (tesseract_dir / "tesseract.exe").write_text("stub")
+
+    monkeypatch.setattr(ocr.shutil, "which", lambda _name: None)  # nothing on PATH
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+    monkeypatch.setenv("PATH", "/somewhere/else")
+
+    ocr._ensure_windows_tesseract_discoverable()
+
+    assert ocr.os.environ["PATH"].split(ocr.os.pathsep)[0] == str(tesseract_dir)
+
+
+def test_ensure_windows_tesseract_discoverable_noop_when_already_on_path(monkeypatch):
+    monkeypatch.setattr(ocr.shutil, "which", lambda name: "tesseract" if name == "tesseract" else None)
+    monkeypatch.setenv("PATH", "/unchanged")
+
+    ocr._ensure_windows_tesseract_discoverable()
+
+    assert ocr.os.environ["PATH"] == "/unchanged"
 
 
 # --- B2: ScanTailor discovery on Windows ------------------------------------
