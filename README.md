@@ -52,10 +52,21 @@ install finishes.
 ### Step 2: Install ScanTailor Advanced
 
 ScanTailor Advanced is the program you'll use to review and adjust each
-scanned page. Download and run the installer for the Windows 10/11 build —
-check the project's official releases page
-(<https://github.com/ScanTailor-Advanced/scantailor-advanced/releases>) for
-the latest one.
+scanned page. The project's current GitHub repository
+(<https://github.com/ScanTailor-Advanced/scantailor-advanced>) only publishes
+Linux builds now, so download the installer instead from the original
+developer's GitHub project, which still hosts the last Windows release:
+
+- 64-bit (use this on a normal modern PC):
+  <https://github.com/4lex4/scantailor-advanced/releases/download/v1.0.16/scantailor-advanced-1.0.16-win64.exe>
+- 32-bit (only if you know you're on a 32-bit Windows install):
+  <https://github.com/4lex4/scantailor-advanced/releases/download/v1.0.16/scantailor-advanced-1.0.16-win32.exe>
+
+This is an older version (v1.0.16, from 2019 — the last one built for
+Windows before the project moved to the Linux-only-releasing repository
+above), but it's a genuine official release directly from GitHub, which is
+safer to trust than a third-party mirror site. Run the downloaded installer
+once it finishes downloading.
 
 > **A security warning is normal.** The first time you launch a freshly
 > downloaded ScanTailor Advanced, Windows may show a blue "Windows protected
@@ -74,24 +85,34 @@ appendix below for how to point `scan-cleanup` at it directly.)
 
 `scan-cleanup` also needs two more small programs: one that reads text out of
 scanned pages (Tesseract), and one that helps assemble the final PDF
-(Ghostscript). Install both with:
+(Ghostscript).
+
+Install Tesseract with:
 
 ```powershell
 winget install UB-Mannheim.TesseractOCR
-winget install ArtifexSoftware.GhostScript
 ```
 
-**Close this PowerShell window and open a new one** again afterward, so it
-picks up the new programs. To check both installed correctly, run:
+Ghostscript isn't available through `winget` anymore, so install it by hand
+instead:
+
+1. Go to <https://ghostscript.com/releases/gsdnld.html> and download the
+   64-bit Windows release (look for a filename like
+   `gs10.xx.x-x64-installer.exe`).
+2. Run the downloaded installer, accepting the defaults. `scan-cleanup` will
+   find it automatically afterward — there's nothing else to do here.
+
+**Close this PowerShell window and open a new one** afterward, so it picks up
+Tesseract. To check it installed correctly, run:
 
 ```powershell
 tesseract --version
-gswin64c --version
 ```
 
-Each should print a version number. If either says something like "not
-recognized," see the technical appendix's "Adding a program to PATH by hand"
-note.
+It should print a version number. If it says something like "not
+recognized," try closing PowerShell and reopening it once more, or
+reinstalling Tesseract — if it still doesn't work, see the technical
+appendix's "Adding a program to PATH by hand" note.
 
 ### Step 4: Download and set up scan-cleanup
 
@@ -223,6 +244,19 @@ platform plumbing:
   install) on Windows. `ocr.py`'s `_REQUIRED_BINARIES` maps a human-readable
   label to a tuple of acceptable command names, and the dependency check
   passes if any one of them resolves via `shutil.which`.
+- **Ghostscript discovery.** Ghostscript's Windows installer never adds
+  itself to `PATH` — no checkbox for it exists, unlike Tesseract's UB
+  Mannheim build — so even a completely standard install leaves
+  `gswin64c.exe` unreachable by name. `ocr.py`'s
+  `_ensure_windows_ghostscript_discoverable()` checks the standard install
+  location (`%ProgramFiles%\gs\gs<version>\bin\`, also checking
+  `%ProgramFiles(x86)%`) and, if `shutil.which` can't already find any of
+  Ghostscript's command names, prepends that folder to the current
+  process's `PATH` so both the dependency check and every subprocess
+  `ocrmypdf` launches afterward (which inherit that environment) can find
+  it. This mirrors `resolve_scantailor()`'s fixed-location fallback for the
+  same underlying reason — Windows installers vary in whether they touch
+  `PATH` at all, and this package can't assume they do.
 - **ScanTailor Advanced discovery.** `resolve_scantailor()` in
   `scantailor.py` checks, in order: an explicit `--scantailor` path, the
   `SCANTAILOR_ADVANCED` environment variable, `scantailor-advanced.exe` on

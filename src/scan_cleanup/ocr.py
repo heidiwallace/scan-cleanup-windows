@@ -1,6 +1,8 @@
 """Adds an invisible, searchable text layer to the final PDF via ocrmypdf."""
 
+import os
 import shutil
+import sys
 from pathlib import Path
 
 import ocrmypdf
@@ -18,8 +20,7 @@ _REQUIRED_BINARIES = {
 _INSTALL_INSTRUCTIONS = r"""
 scan-cleanup requires two non-Python programs to be installed before OCR can
 run: Tesseract (the OCR engine) and Ghostscript. These are NOT installed by
-pip/uv — they must be installed separately, like installing an app, and their
-folders must be on your PATH.
+pip/uv — they must be installed separately, like installing an app.
 
 On Windows:
 
@@ -27,18 +28,16 @@ On Windows:
        https://github.com/UB-Mannheim/tesseract/wiki
      During setup, enable "Add to PATH" (or afterwards add its install folder,
      e.g. C:\Program Files\Tesseract-OCR, to your PATH by hand). English
-     language data is included by default.
+     language data is included by default. A package manager also works:
+       winget install UB-Mannheim.TesseractOCR
 
   2. Ghostscript — install the 64-bit release from
        https://ghostscript.com/releases/gsdnld.html
-     Then add its "bin" folder (which contains gswin64c.exe, e.g.
-     C:\Program Files\gs\gs10.03.1\bin) to your PATH.
+     A standard install to its default location (C:\Program Files\gs\...) is
+     found automatically — no PATH changes needed. Only add its "bin" folder
+     to PATH by hand if you installed it somewhere nonstandard.
 
   3. Close and reopen your terminal, then run scan-cleanup again.
-
-With a package manager instead:
-  winget install UB-Mannheim.TesseractOCR
-  winget install ArtifexSoftware.GhostScript
 
 See the README's Installation section for more detail.
 """.strip()
@@ -48,7 +47,47 @@ class MissingSystemDependencyError(RuntimeError):
     """Raised when a required non-Python program (Tesseract, Ghostscript) is missing."""
 
 
+def _find_windows_ghostscript_bin_dir() -> Path | None:
+    """Locate Ghostscript's "bin" folder in its default Windows install location.
+
+    Unlike the Tesseract build this project documents, Ghostscript's Windows
+    installer has no "Add to PATH" option at all (confirmed against its own
+    install docs), so a completely standard install still leaves gswin64c.exe
+    unreachable by name. Mirrors scantailor.py's resolve_scantailor() fixed-
+    location fallback for the same reason: PATH can't be relied on here.
+    """
+    program_roots = (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)"))
+    matches: list[Path] = []
+    for root in filter(None, program_roots):
+        gs_root = Path(root, "gs")
+        matches.extend(gs_root.glob("gs*/bin/gswin64c.exe"))
+        matches.extend(gs_root.glob("gs*/bin/gswin32c.exe"))
+    if not matches:
+        return None
+    # If more than one version is installed, prefer the highest version folder
+    # name (e.g. "gs10.03.1" over "gs10.02.0").
+    matches.sort(key=lambda path: path.parent.parent.name)
+    return matches[-1].parent
+
+
+def _ensure_windows_ghostscript_discoverable() -> None:
+    """Make a standard Ghostscript install visible to shutil.which and ocrmypdf.
+
+    ocrmypdf shells out to "gswin64c" by name; if it isn't already on PATH,
+    prepending its discovered folder to this process's PATH makes it visible
+    both to the check below and to every subprocess ocrmypdf launches
+    afterwards (subprocesses inherit the parent's environment).
+    """
+    if any(shutil.which(command) for command in ("gswin64c", "gswin32c", "gs")):
+        return
+    bin_dir = _find_windows_ghostscript_bin_dir()
+    if bin_dir is not None:
+        os.environ["PATH"] = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
+
+
 def check_system_dependencies() -> None:
+    if sys.platform == "win32":
+        _ensure_windows_ghostscript_discoverable()
     missing = [
         (label, description)
         for label, (description, commands) in _REQUIRED_BINARIES.items()

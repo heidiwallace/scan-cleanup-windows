@@ -39,6 +39,83 @@ def test_all_dependencies_present_via_mixed_names(monkeypatch):
     ocr.check_system_dependencies()
 
 
+# --- Ghostscript fixed-location discovery on Windows -------------------------
+#
+# Unlike Tesseract, Ghostscript's Windows installer has no "Add to PATH"
+# option at all, so a completely standard install still leaves gswin64c.exe
+# unreachable by name unless this fallback finds it.
+
+
+def test_find_windows_ghostscript_bin_dir_locates_standard_install(monkeypatch, tmp_path):
+    bin_dir = tmp_path / "gs" / "gs10.03.1" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "gswin64c.exe").write_text("stub")
+
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+
+    assert ocr._find_windows_ghostscript_bin_dir() == bin_dir
+
+
+def test_find_windows_ghostscript_bin_dir_prefers_highest_version(monkeypatch, tmp_path):
+    older = tmp_path / "gs" / "gs10.02.0" / "bin"
+    newer = tmp_path / "gs" / "gs10.03.1" / "bin"
+    for bin_dir in (older, newer):
+        bin_dir.mkdir(parents=True)
+        (bin_dir / "gswin64c.exe").write_text("stub")
+
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+
+    assert ocr._find_windows_ghostscript_bin_dir() == newer
+
+
+def test_find_windows_ghostscript_bin_dir_returns_none_when_absent(monkeypatch, tmp_path):
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+
+    assert ocr._find_windows_ghostscript_bin_dir() is None
+
+
+def test_ensure_windows_ghostscript_discoverable_prepends_path_when_found(monkeypatch, tmp_path):
+    bin_dir = tmp_path / "gs" / "gs10.03.1" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "gswin64c.exe").write_text("stub")
+
+    monkeypatch.setattr(ocr.shutil, "which", lambda _name: None)  # nothing on PATH
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+    monkeypatch.setenv("PATH", "/somewhere/else")
+
+    ocr._ensure_windows_ghostscript_discoverable()
+
+    assert ocr.os.environ["PATH"].split(ocr.os.pathsep)[0] == str(bin_dir)
+
+
+def test_ensure_windows_ghostscript_discoverable_noop_when_already_on_path(monkeypatch):
+    monkeypatch.setattr(ocr.shutil, "which", lambda name: "gswin64c" if name == "gswin64c" else None)
+    monkeypatch.setenv("PATH", "/unchanged")
+
+    ocr._ensure_windows_ghostscript_discoverable()
+
+    assert ocr.os.environ["PATH"] == "/unchanged"
+
+
+def test_check_system_dependencies_calls_windows_discovery_only_on_win32(monkeypatch, tmp_path):
+    """check_system_dependencies() must invoke the Windows fallback only on win32."""
+    called = []
+    monkeypatch.setattr(ocr, "_ensure_windows_ghostscript_discoverable", lambda: called.append(1))
+    monkeypatch.setattr(ocr.shutil, "which", lambda _name: "present")
+
+    monkeypatch.setattr(ocr.sys, "platform", "darwin")
+    ocr.check_system_dependencies()
+    assert called == []
+
+    monkeypatch.setattr(ocr.sys, "platform", "win32")
+    ocr.check_system_dependencies()
+    assert called == [1]
+
+
 # --- B2: ScanTailor discovery on Windows ------------------------------------
 
 
