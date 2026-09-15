@@ -140,4 +140,10 @@ def add_ocr_layer(pdf_path: Path, output_path: Path, recipe: Recipe) -> None:
         deskew=False,
         clean=False,
         remove_background=False,
+        # ScanTailor's output is already the final, deliberately-compressed
+        # bitonal render; ocrmypdf's post-OCR image recompression pass has
+        # nothing useful left to do to it (in practice: no size improvement,
+        # just wasted time across every page) and never affects OCR accuracy
+        # or the visible page image either way, so skip it for speed.
+        optimize=0,
     )
