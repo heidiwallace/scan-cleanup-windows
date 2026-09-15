@@ -114,42 +114,29 @@ recognized," try closing PowerShell and reopening it once more, or
 reinstalling Tesseract — if it still doesn't work, see the technical
 appendix's "Adding a program to PATH by hand" note.
 
-### Step 4: Download and set up scan-cleanup
+### Step 4: Install scan-cleanup
 
-Choose a location for `scan-cleanup` — for example, your Documents folder —
-and navigate there in PowerShell. If you'd like to put it in Documents, run:
-
-```powershell
-cd ~\Documents
-```
-
-Downloading the code uses Git, a program for downloading and tracking
-project code. If you don't already have it, install it with:
+Installing `scan-cleanup` uses Git, a program for downloading project code.
+If you don't already have it, install it with:
 
 ```powershell
 winget install Git.Git
 ```
 
-**Close this PowerShell window and open a new one** afterward, then continue
-from your chosen location (e.g. `cd ~\Documents` again). Now download a copy
-of `scan-cleanup` and set it up:
+**Close this PowerShell window and open a new one** afterward, then install
+`scan-cleanup` itself:
 
 ```powershell
-git clone https://github.com/heidiwallace/scan-cleanup-windows.git
-cd scan-cleanup-windows
-uv sync
+uv tool install git+https://github.com/heidiwallace/scan-cleanup-windows
 ```
 
-That's it — setup is done, and you should now have a `scan-cleanup-windows`
-folder inside Documents (or wherever you chose). From now on, run every
-command below from inside that folder — if you ever close PowerShell and
-reopen it, just run `cd ~\Documents\scan-cleanup-windows` (adjusting the
-path if you chose somewhere else) to get back there.
+That's it — `scan-cleanup` is now installed and ready to use from any
+folder, no project folder to keep track of.
+
+**Close this PowerShell window and open a new one** one more time, so the
+`scan-cleanup` command is recognized.
 
 ## Using scan-cleanup
-
-Remember to `cd` into the `scan-cleanup-windows` folder first (see Step 4
-above) if you've just opened a new PowerShell window.
 
 In the commands below, replace anything in ALL CAPS with your own file or
 folder path — for example, `INPUT.pdf` becomes the actual path to your PDF,
@@ -164,7 +151,7 @@ wrap it in quotes, like `"C:\Users\you\My Scans\book.pdf"`.
 To clean up a single scanned PDF, run:
 
 ```powershell
-uv run scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY
+scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY
 ```
 
 The finished file will appear as:
@@ -188,11 +175,11 @@ everything created along the way is cleaned up automatically. If you'd like
 to keep those in-between files (useful for troubleshooting), add
 `--keep-workspace` to the command.
 
-> **A note on where to save your files.** Try to keep your PDFs (and this
-> `scan-cleanup-windows` folder) on your computer's main drive, in a short
-> folder path, rather than deep inside a long chain of folders or a
-> synced folder like OneDrive or Google Drive. Windows has an old rule that
-> file locations longer than 260 characters can cause confusing errors, and
+> **A note on where to save your files.** Try to keep your PDFs on your
+> computer's main drive, in a short folder path, rather than deep inside a
+> long chain of folders or a synced folder like OneDrive or Google Drive.
+> Windows has an old rule that file locations longer than 260 characters can
+> cause confusing errors, and
 > the more nested or synced your folders are, the more likely you are to hit
 > it. If you do run into strange file-not-found errors partway through,
 > this is the first thing to check — see the technical appendix for the
@@ -206,7 +193,7 @@ being kept (this location is called the "workspace"). Fix the problem, then
 pick up where you left off with:
 
 ```powershell
-uv run scan-cleanup resume WORKSPACE OUTPUT_DIRECTORY
+scan-cleanup resume WORKSPACE OUTPUT_DIRECTORY
 ```
 
 (Use the workspace location `scan-cleanup` showed you.) This reopens
@@ -219,7 +206,7 @@ If you have a whole folder of scanned PDFs to clean up, you can process them
 one after another with a single command:
 
 ```powershell
-uv run scan-cleanup batch INPUT_DIRECTORY OUTPUT_DIRECTORY
+scan-cleanup batch INPUT_DIRECTORY OUTPUT_DIRECTORY
 ```
 
 ScanTailor Advanced will open once for each PDF in turn. If you need to stop
@@ -328,7 +315,7 @@ Two mitigations, either is enough on its own:
 - Point `--workspace-root` at something short and local, e.g.:
 
   ```powershell
-  uv run scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --workspace-root C:\sc
+  scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --workspace-root C:\sc
   ```
 
 - Or enable long-path support system-wide via the `LongPathsEnabled` Group
@@ -359,7 +346,7 @@ location for `scan-cleanup` to find automatically. Either pass its path on
 every run:
 
 ```powershell
-uv run scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --scantailor "C:\Tools\scantailor-advanced\scantailor-advanced.exe"
+scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --scantailor "C:\Tools\scantailor-advanced\scantailor-advanced.exe"
 ```
 
 or set it once per PowerShell session (or in your PowerShell profile, to make
@@ -372,7 +359,10 @@ $env:SCANTAILOR_ADVANCED = "C:\Tools\scantailor-advanced\scantailor-advanced.exe
 ### Splitting a command across multiple lines
 
 PowerShell uses a backtick `` ` `` at the end of a line to continue a command
-onto the next line (unlike the backslash used in bash/macOS examples):
+onto the next line (unlike the backslash used in bash/macOS examples). The
+example below uses the repo's bundled sample PDF and `uv run`, so it assumes
+a local development checkout (see "Development" below) rather than the
+`uv tool install` route end users take:
 
 ```powershell
 uv run scan-cleanup process "tests\data\MH_1976_vIV_bio_1-40.pdf" output `
@@ -459,6 +449,15 @@ authoritative order in `workspace.json`, and the final TIFFs are assembled
 only after a complete one-to-one filename validation against that record.
 
 ### Development
+
+Contributing requires a local checkout, unlike the `uv tool install` route
+end users take:
+
+```powershell
+git clone https://github.com/heidiwallace/scan-cleanup-windows.git
+cd scan-cleanup-windows
+uv sync
+```
 
 Before opening a pull request, run the same checks the CI workflow runs:
 
