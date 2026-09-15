@@ -487,6 +487,27 @@ installs Tesseract and Ghostscript on the Windows runner and runs
 pipeline end to end (it is skipped in the normal run on any machine where
 those programs are absent).
 
+### Updating an installed copy of scan-cleanup
+
+Anyone who installed via `uv tool install` (the end-user route in Step 4, not
+a development checkout) picks up new pushes to `main` with:
+
+```powershell
+uv tool upgrade scan-cleanup-windows
+```
+
+The package is named `scan-cleanup-windows` for this purpose, even though the
+command it exposes day to day is `scan-cleanup` — `uv tool list` shows the
+installed name if there's any doubt. `uv tool upgrade` re-resolves the git
+source and reinstalls only if the resolved commit changed (verified
+directly: it does fetch the latest commit on the default branch, not just
+reuse whatever commit was cached at install time). If it ever behaves
+unexpectedly, a from-scratch reinstall is the reliable fallback:
+
+```powershell
+uv tool install --force git+https://github.com/heidiwallace/scan-cleanup-windows
+```
+
 ### Relationship to the macOS package
 
 This is a fork of the macOS `scan-cleanup` package, forked at
