@@ -134,6 +134,23 @@ def test_resolve_scantailor_finds_standard_windows_install(monkeypatch, tmp_path
     assert scantailor.resolve_scantailor() == exe.resolve()
 
 
+def test_resolve_scantailor_finds_plain_scantailor_exe_name(monkeypatch, tmp_path):
+    """v1.0.16 (the last Windows build - see README) ships scantailor.exe,
+    not scantailor-advanced.exe, in its default install folder."""
+    exe = tmp_path / "ScanTailor Advanced" / "scantailor.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("stub")
+    exe.chmod(0o755)
+
+    monkeypatch.setattr(scantailor.sys, "platform", "win32")
+    monkeypatch.setattr(scantailor.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    for other in ("ProgramFiles(x86)", "ProgramW6432", "LOCALAPPDATA"):
+        monkeypatch.delenv(other, raising=False)
+
+    assert scantailor.resolve_scantailor() == exe.resolve()
+
+
 def test_resolve_scantailor_windows_error_lists_checked_paths(monkeypatch, tmp_path):
     monkeypatch.setattr(scantailor.sys, "platform", "win32")
     monkeypatch.setattr(scantailor.shutil, "which", lambda _name: None)

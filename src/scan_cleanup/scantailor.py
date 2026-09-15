@@ -33,7 +33,16 @@ def resolve_scantailor(explicit: Path | None = None) -> Path:
     if env_path := os.environ.get("SCANTAILOR_ADVANCED"):
         candidates.append(Path(env_path).expanduser())
 
-    for command in ("scantailor-advanced", "scantailor-advanced.exe"):
+    for command in (
+        "scantailor-advanced",
+        "scantailor-advanced.exe",
+        # v1.0.16, the last Windows build of the "Advanced" fork (see README's
+        # "Step 2: Install ScanTailor Advanced"), ships an executable named
+        # plain "scantailor.exe" rather than "scantailor-advanced.exe" —
+        # confirmed against a real install.
+        "scantailor",
+        "scantailor.exe",
+    ):
         if found := shutil.which(command):
             candidates.append(Path(found))
 
@@ -60,10 +69,13 @@ def resolve_scantailor(explicit: Path | None = None) -> Path:
         # check the standard install roots directly. Built from environment
         # variables because Windows can live on any drive and "Program Files" is
         # localized on some systems.
-        # TODO(win-verify): confirm the actual install folder name against the
-        # ScanTailor Advanced Windows build documented in the README (installer
-        # vs. portable .zip may differ; a portable build has no fixed location
-        # and needs --scantailor or SCANTAILOR_ADVANCED).
+        #
+        # Confirmed against a real install of v1.0.16 (the last Windows build
+        # of the "Advanced" fork — see README's "Step 2: Install ScanTailor
+        # Advanced"): its default install folder is "ScanTailor Advanced", but
+        # the executable inside is named plain "scantailor.exe", not
+        # "scantailor-advanced.exe". Both names are checked in every candidate
+        # folder in case a different build uses the other name.
         program_roots = (
             os.environ.get("ProgramFiles"),
             os.environ.get("ProgramFiles(x86)"),
@@ -72,7 +84,8 @@ def resolve_scantailor(explicit: Path | None = None) -> Path:
         )
         for root in filter(None, program_roots):
             for folder in ("ScanTailor Advanced", "STAdvanced", "ScanTailor"):
-                candidates.append(Path(root) / folder / "scantailor-advanced.exe")
+                for exe_name in ("scantailor.exe", "scantailor-advanced.exe"):
+                    candidates.append(Path(root) / folder / exe_name)
 
     for candidate in candidates:
         if candidate.is_file() and os.access(candidate, os.X_OK):

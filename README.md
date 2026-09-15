@@ -130,11 +130,24 @@ winget install Git.Git
 uv tool install git+https://github.com/heidiwallace/scan-cleanup-windows
 ```
 
-That's it — `scan-cleanup` is now installed and ready to use from any
-folder, no project folder to keep track of.
+That's it — `scan-cleanup` is now installed, ready to use from any folder,
+with no project folder to keep track of.
 
-**Close this PowerShell window and open a new one** one more time, so the
-`scan-cleanup` command is recognized.
+If you see a warning like `... is not on your PATH`, run this once (it's a
+one-time fix — you won't need to repeat it after future installs):
+
+```powershell
+uv tool update-shell
+```
+
+**Close this PowerShell window and open a new one** afterward, so the
+`scan-cleanup` command is recognized. To check it worked, run:
+
+```powershell
+scan-cleanup --help
+```
+
+It should print usage instructions rather than saying "not recognized."
 
 ## Using scan-cleanup
 
