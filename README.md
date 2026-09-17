@@ -69,13 +69,6 @@ Run the downloaded installer once it finishes downloading.
 > anything is wrong. If you trust where you got it from, click **More info**,
 > then **Run anyway**.
 
-Once installed, `scan-cleanup` will be able to find ScanTailor Advanced
-automatically — you won't need to point to it manually, as long as it went
-into its normal install location. (If you were given a "portable" version
-instead — a `.zip` file you extracted somewhere, rather than something
-installed via the installer above — pass its path directly:
-`scan-cleanup process INPUT.pdf OUTPUT_DIRECTORY --scantailor "C:\path\to\scantailor-advanced.exe"`.)
-
 ### Step 3: Install the other required programs
 
 `scan-cleanup` also needs two more small programs: one that reads text out of
@@ -93,19 +86,8 @@ Install Ghostscript by hand:
 1. Go to <https://ghostscript.com/releases/gsdnld.html> and download the
    64-bit Windows release (look for a filename like
    `gs10.xx.x-x64-installer.exe`).
-2. Run the downloaded installer, accepting the defaults.
+2. Run the downloaded installer, accepting the defaults. In particular, the installed program location should be in `C:\Program Files\`.
 
-For both programs, a standard install to its default location is found
-automatically by `scan-cleanup` — there's nothing else to do here, even if a
-plain `tesseract --version` in PowerShell says "not recognized" (that
-command only checks your shell's own settings, which `scan-cleanup` doesn't
-depend on). If `scan-cleanup` itself still reports one as missing when you
-actually run it, it was likely installed somewhere other than its normal
-location — find its install folder (Tesseract:
-`C:\Program Files\Tesseract-OCR`; Ghostscript's `bin` folder:
-`C:\Program Files\gs\gs<version>\bin`), add it via **Start → "Edit the
-system environment variables" → Environment Variables**, then close and
-reopen PowerShell.
 
 ### Step 4: Install scan-cleanup
 
@@ -123,9 +105,6 @@ winget install Git.Git
 uv tool install git+https://github.com/heidiwallace/scan-cleanup-windows
 ```
 
-That's it — `scan-cleanup` is now installed, ready to use from any folder,
-with no project folder to keep track of.
-
 If you see a warning like `... is not on your PATH`, run this once (it's a
 one-time fix — you won't need to repeat it after future installs):
 
@@ -133,21 +112,25 @@ one-time fix — you won't need to repeat it after future installs):
 uv tool update-shell
 ```
 
+That's it — `scan-cleanup` is now installed.
+
+
+
 **Close this PowerShell window and open a new one** afterward, so the
-`scan-cleanup` command is recognized. To check it worked, run:
+`scan-cleanup` command is recognized. To check that it worked, run:
 
 ```powershell
 scan-cleanup --help
 ```
 
-It should print usage instructions rather than saying "not recognized."
+It should print usage instructions. If it returns a message like "not recognized," please contact me for troubleshooting.
 
 ## Using scan-cleanup
 
 In the commands below, replace anything in ALL CAPS with your own file or
 folder path — for example, `INPUT.pdf` becomes the actual path to your PDF,
 and `OUTPUT_DIRECTORY` becomes the folder you want the result saved in. The
-easiest way to get a path right is to type the command up to that point, then
+easiest way to get a path right is to type the command (i.e., `scan-cleanup process`), then
 drag the file or folder from File Explorer directly into the PowerShell
 window — it will fill in the correct path for you. If a path contains spaces,
 wrap it in quotes, like `"C:\Users\you\My Scans\book.pdf"`.
