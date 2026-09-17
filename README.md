@@ -154,10 +154,20 @@ it gets replaced.
 
 Shortly after you run the command, ScanTailor Advanced will open on its own
 with your pages already loaded and good default settings applied. Look
-through the pages, make any adjustments you'd like, then process all the
-pages and close the ScanTailor Advanced window. `scan-cleanup` will notice
-the window closed and automatically finish the job — assembling the pages
-and making the text searchable.
+through the pages and make any adjustments you'd like.
+
+> **Before closing ScanTailor Advanced, you must batch-process every page —
+> just looking through them isn't enough.** Click the **Output** tab in the
+> panel on the left, then in the thumbnail list on the right press **Ctrl+A**
+> to select every page, and click the **play (▶) button** below the
+> thumbnails to process all of them. Wait for it to finish (the thumbnails
+> will show the finished page images) before closing the window. If you skip
+> this step, ScanTailor Advanced won't have actually written any output
+> files, and `scan-cleanup` will report every page as missing.
+
+Once that's done, close the ScanTailor Advanced window. `scan-cleanup` will
+notice the window closed and automatically finish the job — assembling the
+pages and making the text searchable.
 
 When it's done, only your original PDF and the new finished PDF are kept;
 everything created along the way is cleaned up automatically. If you'd like
